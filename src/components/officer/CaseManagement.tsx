@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getCases, createCase } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -72,99 +73,9 @@ const CaseManagement = () => {
   const [isNewSuspectDialogOpen, setIsNewSuspectDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Mock data for cases
-  const defaultCases: Case[] = [
-    {
-      id: "C-2023-001",
-      title: "Downtown Robbery",
-      status: "open",
-      dateCreated: "2023-05-15",
-      lastUpdated: "2023-06-02",
-      description: "Armed robbery at First National Bank on Main Street",
-      assignedOfficers: ["Officer Johnson", "Detective Smith"],
-    },
-    {
-      id: "C-2023-002",
-      title: "Vehicle Theft",
-      status: "pending",
-      dateCreated: "2023-05-20",
-      lastUpdated: "2023-05-25",
-      description: "Stolen vehicle reported at Westside Mall parking lot",
-      assignedOfficers: ["Officer Williams"],
-    },
-    {
-      id: "C-2023-003",
-      title: "Residential Burglary",
-      status: "closed",
-      dateCreated: "2023-04-10",
-      lastUpdated: "2023-05-30",
-      description: "Break-in at 123 Oak Street, jewelry and electronics stolen",
-      assignedOfficers: ["Detective Brown", "Officer Davis"],
-    },
-  ];
-
-  // Mock data for evidence
-  const defaultEvidence: Evidence[] = [
-    {
-      id: "E-001",
-      caseId: "C-2023-001",
-      name: "Security Camera Footage",
-      type: "Video",
-      dateCollected: "2023-05-15",
-      location: "Bank Vault",
-      status: "Processing",
-      description: "CCTV footage showing suspect entering the bank",
-    },
-    {
-      id: "E-002",
-      caseId: "C-2023-001",
-      name: "Fingerprints",
-      type: "Physical",
-      dateCollected: "2023-05-15",
-      location: "Counter Surface",
-      status: "Analyzed",
-      description: "Partial fingerprints found on the counter",
-    },
-    {
-      id: "E-003",
-      caseId: "C-2023-002",
-      name: "Tire Marks",
-      type: "Physical",
-      dateCollected: "2023-05-20",
-      location: "Parking Lot",
-      status: "Collected",
-      description: "Tire marks found at the scene",
-    },
-  ];
-
-  // Mock data for suspects
-  const defaultSuspects: Suspect[] = [
-    {
-      id: "S-001",
-      caseId: "C-2023-001",
-      name: "John Doe",
-      age: 32,
-      gender: "Male",
-      status: "Wanted",
-      description:
-        "Approximately 6ft tall, medium build, last seen wearing a black hoodie",
-      lastKnownLocation: "Downtown area",
-    },
-    {
-      id: "S-002",
-      caseId: "C-2023-002",
-      name: "Jane Smith",
-      age: 28,
-      gender: "Female",
-      status: "Under Investigation",
-      description: "Blonde hair, slim build, tattoo on right arm",
-      lastKnownLocation: "Westside Apartments",
-    },
-  ];
-
-  const [cases, setCases] = useState<Case[]>(defaultCases);
-  const [evidence, setEvidence] = useState<Evidence[]>(defaultEvidence);
-  const [suspects, setSuspects] = useState<Suspect[]>(defaultSuspects);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [suspects, setSuspects] = useState<Suspect[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -173,7 +84,20 @@ const CaseManagement = () => {
       try {
         const data = await getCases();
         if (data && data.length > 0) {
-          setCases(data as Case[]);
+          // Transform the data to match our Case interface
+          const formattedCases = data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            status: item.status as "open" | "closed" | "pending",
+            dateCreated: item.date_created,
+            lastUpdated: item.last_updated,
+            description: item.description,
+            assignedOfficers:
+              typeof item.assigned_officers === "string"
+                ? JSON.parse(item.assigned_officers)
+                : item.assigned_officers,
+          }));
+          setCases(formattedCases);
         }
       } catch (error) {
         console.error("Error fetching cases:", error);
@@ -182,8 +106,79 @@ const CaseManagement = () => {
       }
     };
 
+    const fetchEvidence = async () => {
+      try {
+        const { data, error } = await supabase.from("evidence").select("*");
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const formattedEvidence = data.map((item) => ({
+            id: item.id,
+            caseId: item.case_id,
+            name: item.name,
+            type: item.type,
+            dateCollected: item.date_collected,
+            location: item.location,
+            status: item.status,
+            description: item.description,
+          }));
+          setEvidence(formattedEvidence);
+        }
+      } catch (error) {
+        console.error("Error fetching evidence:", error);
+      }
+    };
+
+    const fetchSuspects = async () => {
+      try {
+        const { data, error } = await supabase.from("suspects").select("*");
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const formattedSuspects = data.map((item) => ({
+            id: item.id,
+            caseId: item.case_id,
+            name: item.name,
+            age: item.age,
+            gender: item.gender,
+            status: item.status,
+            description: item.description,
+            lastKnownLocation: item.last_known_location,
+          }));
+          setSuspects(formattedSuspects);
+        }
+      } catch (error) {
+        console.error("Error fetching suspects:", error);
+      }
+    };
+
     fetchCases();
+    fetchEvidence();
+    fetchSuspects();
   }, []);
+
+  const handleCreateCase = async (caseData) => {
+    setIsLoading(true);
+    try {
+      const newCase = await createCase({
+        title: caseData.title,
+        description: caseData.description,
+        assigned_officers: JSON.stringify(
+          caseData.assignedOfficers.split(",").map((o) => o.trim()),
+        ),
+        status: "open",
+        date_created: new Date().toISOString().split("T")[0],
+        last_updated: new Date().toISOString().split("T")[0],
+      });
+
+      setCases([...cases, newCase]);
+      setIsNewCaseDialogOpen(false);
+    } catch (error) {
+      console.error("Error creating case:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
 
   const handleCaseSelect = (caseItem: Case) => {
@@ -304,8 +299,29 @@ const CaseManagement = () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={() => setIsNewCaseDialogOpen(false)}>
-                  Create Case
+                <Button
+                  onClick={() => {
+                    const titleInput = document.getElementById(
+                      "title",
+                    ) as HTMLInputElement;
+                    const descriptionInput = document.getElementById(
+                      "description",
+                    ) as HTMLTextAreaElement;
+                    const officersInput = document.getElementById(
+                      "officers",
+                    ) as HTMLInputElement;
+
+                    const caseData = {
+                      title: titleInput.value,
+                      description: descriptionInput.value,
+                      assignedOfficers: officersInput.value,
+                    };
+
+                    handleCreateCase(caseData);
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Processing..." : "Create Case"}
                 </Button>
               </DialogFooter>
             </DialogContent>

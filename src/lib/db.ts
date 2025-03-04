@@ -129,3 +129,32 @@ export async function getCrimeStats(timeRange?: string) {
   if (error) throw error;
   return data;
 }
+
+// Datasets
+export async function getDatasets() {
+  const { data, error } = await supabase.from("datasets").select("*");
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getDatasetById(id: string) {
+  const { data, error } = await supabase
+    .from("datasets")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createDataset(datasetData: any) {
+  const { data, error } = await supabase
+    .from("datasets")
+    .insert([datasetData])
+    .select();
+
+  if (error) throw error;
+  return data[0];
+}

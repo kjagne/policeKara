@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   Card,
   CardContent,
@@ -44,7 +45,7 @@ interface DataAnalysisProps {
 const DataAnalysis = ({
   title = "Data Analysis Tools",
   description = "Advanced tools for historical data analysis, pattern recognition, and resource optimization.",
-  datasets = [
+  initialDatasets = [
     {
       id: "1",
       name: "Crime Records 2023",
@@ -82,6 +83,32 @@ const DataAnalysis = ({
     },
   ],
 }: DataAnalysisProps) => {
+  const [datasets, setDatasets] = useState(initialDatasets);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchDatasets = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase.from("datasets").select("*");
+
+        if (error) {
+          console.error("Error fetching datasets:", error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          setDatasets(data);
+        }
+      } catch (error) {
+        console.error("Error fetching datasets:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDatasets();
+  }, []);
   const [selectedDataset, setSelectedDataset] = useState<string>("");
   const [timeRange, setTimeRange] = useState<string>("1y");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -95,9 +122,36 @@ const DataAnalysis = ({
             <p className="text-muted-foreground">{description}</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Data
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  const { data, error } = await supabase
+                    .from("datasets")
+                    .select("*");
+
+                  if (error) {
+                    console.error("Error refreshing datasets:", error);
+                    return;
+                  }
+
+                  if (data && data.length > 0) {
+                    setDatasets(data);
+                  }
+                } catch (error) {
+                  console.error("Error refreshing datasets:", error);
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+              />
+              {isLoading ? "Refreshing..." : "Refresh Data"}
             </Button>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
@@ -167,9 +221,9 @@ const DataAnalysis = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button variant="secondary">
+                  <Button variant="secondary" disabled={isLoading}>
                     <Filter className="h-4 w-4 mr-2" />
-                    Apply Filters
+                    {isLoading ? "Loading..." : "Apply Filters"}
                   </Button>
                 </div>
 
@@ -441,29 +495,49 @@ const DataAnalysis = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {datasets.map((dataset, index) => (
-                    <tr
-                      key={dataset.id}
-                      className={
-                        index % 2 === 0 ? "bg-background" : "bg-muted/20"
-                      }
-                    >
-                      <td className="p-3">{dataset.name}</td>
-                      <td className="p-3">{dataset.type}</td>
-                      <td className="p-3">{dataset.lastUpdated}</td>
-                      <td className="p-3">{dataset.size}</td>
-                      <td className="p-3">
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Search className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Download className="h-4 w-4" />
-                          </Button>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="p-3 text-center">
+                        <div className="flex justify-center items-center space-x-2">
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          <span>Loading datasets...</span>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : datasets.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="p-3 text-center text-muted-foreground"
+                      >
+                        No datasets found
+                      </td>
+                    </tr>
+                  ) : (
+                    datasets.map((dataset, index) => (
+                      <tr
+                        key={dataset.id}
+                        className={
+                          index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                        }
+                      >
+                        <td className="p-3">{dataset.name}</td>
+                        <td className="p-3">{dataset.type}</td>
+                        <td className="p-3">{dataset.lastUpdated}</td>
+                        <td className="p-3">{dataset.size}</td>
+                        <td className="p-3">
+                          <div className="flex space-x-2">
+                            <Button variant="ghost" size="sm">
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

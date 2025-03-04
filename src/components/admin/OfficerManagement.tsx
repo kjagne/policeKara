@@ -57,7 +57,7 @@ interface Officer {
   joinDate: string;
 }
 
-const OfficerManagement = ({ initialOfficers = mockOfficers }) => {
+const OfficerManagement = ({ initialOfficers = [] }) => {
   const [officers, setOfficers] = useState(initialOfficers);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -78,6 +78,28 @@ const OfficerManagement = ({ initialOfficers = mockOfficers }) => {
 
     fetchOfficers();
   }, []);
+
+  const handleCreateOfficer = async (officerData) => {
+    setIsLoading(true);
+    try {
+      const newOfficer = await createOfficer({
+        name: officerData.name,
+        badge: officerData.badge,
+        rank: officerData.rank,
+        department: officerData.department,
+        status: officerData.status,
+        performance: Math.floor(Math.random() * 30) + 70, // Random performance between 70-100
+        join_date: new Date().toISOString().split("T")[0],
+      });
+
+      setOfficers([...officers, newOfficer]);
+      setIsAddOfficerOpen(false);
+    } catch (error) {
+      console.error("Error creating officer:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("all-officers");
   const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
@@ -572,7 +594,35 @@ const OfficerManagement = ({ initialOfficers = mockOfficers }) => {
             >
               Cancel
             </Button>
-            <Button>Add Officer</Button>
+            <Button
+              onClick={() => {
+                const nameInput = document.getElementById(
+                  "new-name",
+                ) as HTMLInputElement;
+                const badgeInput = document.getElementById(
+                  "new-badge",
+                ) as HTMLInputElement;
+                const rankSelect = document.querySelector(
+                  '[id^="radix-"][aria-expanded]',
+                ) as HTMLElement;
+                const departmentSelect = document.querySelectorAll(
+                  '[id^="radix-"][aria-expanded]',
+                )[1] as HTMLElement;
+
+                const officerData = {
+                  name: nameInput.value,
+                  badge: badgeInput.value,
+                  rank: rankSelect.textContent || "Officer",
+                  department: departmentSelect.textContent || "Patrol",
+                  status: "active",
+                };
+
+                handleCreateOfficer(officerData);
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? "Processing..." : "Add Officer"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -730,79 +780,5 @@ const OfficerManagement = ({ initialOfficers = mockOfficers }) => {
     </div>
   );
 };
-
-// Mock data for officers
-const mockOfficers: Officer[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    badge: "B-1234",
-    rank: "Sergeant",
-    department: "Patrol",
-    status: "active",
-    performance: 92,
-    joinDate: "2015-03-12",
-  },
-  {
-    id: "2",
-    name: "Maria Rodriguez",
-    badge: "B-2345",
-    rank: "Officer",
-    department: "K-9 Unit",
-    status: "active",
-    performance: 88,
-    joinDate: "2018-06-23",
-  },
-  {
-    id: "3",
-    name: "David Chen",
-    badge: "B-3456",
-    rank: "Lieutenant",
-    department: "Detective",
-    status: "active",
-    performance: 95,
-    joinDate: "2010-11-05",
-  },
-  {
-    id: "4",
-    name: "Sarah Johnson",
-    badge: "B-4567",
-    rank: "Officer",
-    department: "Traffic",
-    status: "on-leave",
-    performance: 78,
-    joinDate: "2019-02-18",
-  },
-  {
-    id: "5",
-    name: "Michael Brown",
-    badge: "B-5678",
-    rank: "Officer",
-    department: "Patrol",
-    status: "active",
-    performance: 82,
-    joinDate: "2017-09-30",
-  },
-  {
-    id: "6",
-    name: "Lisa Wilson",
-    badge: "B-6789",
-    rank: "Captain",
-    department: "SWAT",
-    status: "active",
-    performance: 91,
-    joinDate: "2008-04-15",
-  },
-  {
-    id: "7",
-    name: "Robert Davis",
-    badge: "B-7890",
-    rank: "Officer",
-    department: "Patrol",
-    status: "suspended",
-    performance: 65,
-    joinDate: "2020-01-10",
-  },
-];
 
 export default OfficerManagement;

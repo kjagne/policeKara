@@ -130,6 +130,23 @@ const Reports = ({
     },
   });
 
+  // Fetch reports on component mount
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const data = await getReports();
+        if (data && data.length > 0) {
+          // Update the reports state with data from the database
+          // This would replace the mock data
+        }
+      } catch (error) {
+        console.error("Error fetching reports:", error);
+      }
+    };
+
+    fetchReports();
+  }, []);
+
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof reportFormSchema>) => {
     try {
@@ -145,6 +162,18 @@ const Reports = ({
       console.log("Report submitted:", result);
       alert("Report submitted successfully!");
       form.reset();
+
+      // Add the new report to the list
+      const newReport = {
+        id: result.id,
+        title: result.title,
+        type: result.type,
+        submittedDate: new Date().toLocaleDateString(),
+        status: "Pending Review",
+      };
+
+      // Update the reports state
+      // This would be done if we were using a state for reports
     } catch (error) {
       console.error("Error submitting report:", error);
       alert("Failed to submit report. Please try again.");

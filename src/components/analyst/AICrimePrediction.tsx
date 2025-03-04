@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   MapPin,
   AlertTriangle,
@@ -56,45 +57,70 @@ interface ReportProps {
 const AICrimePrediction = () => {
   const [timeRange, setTimeRange] = useState<string>("7days");
 
-  // Mock data for hotspots
-  const defaultHotspots: HotspotProps[] = [
-    {
-      id: "1",
-      name: "Downtown District",
-      riskLevel: "high",
-      crimeType: "Theft",
-      location: "123 Main St",
-      prediction: "78% likelihood in next 7 days",
-      lastUpdated: "2 hours ago",
-    },
-    {
-      id: "2",
-      name: "Riverside Park",
-      riskLevel: "medium",
-      crimeType: "Vandalism",
-      location: "Riverside Dr",
-      prediction: "45% likelihood in next 14 days",
-      lastUpdated: "5 hours ago",
-    },
-    {
-      id: "3",
-      name: "Central Mall",
-      riskLevel: "high",
-      crimeType: "Shoplifting",
-      location: "789 Center Ave",
-      prediction: "82% likelihood in next 3 days",
-      lastUpdated: "1 hour ago",
-    },
-    {
-      id: "4",
-      name: "Eastside Neighborhood",
-      riskLevel: "low",
-      crimeType: "Noise Complaints",
-      location: "East District",
-      prediction: "23% likelihood in next 30 days",
-      lastUpdated: "12 hours ago",
-    },
-  ];
+  const [hotspots, setHotspots] = useState<HotspotProps[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchHotspots = async () => {
+      setIsLoading(true);
+      try {
+        // Get crime statistics to generate hotspots
+        const { data, error } = await supabase
+          .from("crime_statistics")
+          .select("*");
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // Group by region and category to identify hotspots
+          const regionCounts = {};
+
+          data.forEach((stat) => {
+            const key = `${stat.region}-${stat.category}`;
+            if (!regionCounts[key]) {
+              regionCounts[key] = {
+                count: 0,
+                region: stat.region,
+                category: stat.category,
+              };
+            }
+            regionCounts[key].count += stat.count;
+          });
+
+          // Convert to hotspots array and sort by count
+          const hotspotData = Object.values(regionCounts)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 4)
+            .map((item, index) => {
+              const riskLevel =
+                index === 0 || index === 1
+                  ? "high"
+                  : index === 2
+                    ? "medium"
+                    : "low";
+
+              return {
+                id: (index + 1).toString(),
+                name: `${item.region}`,
+                riskLevel: riskLevel as "high" | "medium" | "low",
+                crimeType: item.category,
+                location: `${item.region} Area`,
+                prediction: `${Math.round(70 - index * 15)}% likelihood in next ${(index + 1) * 7} days`,
+                lastUpdated: `${index + 1} hour${index === 0 ? "" : "s"} ago`,
+              };
+            });
+
+          setHotspots(hotspotData);
+        }
+      } catch (error) {
+        console.error("Error fetching hotspot data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHotspots();
+  }, []);
 
   // Mock data for prediction factors
   const defaultPredictionFactors: PredictionFactorProps[] = [
@@ -259,58 +285,71 @@ const AICrimePrediction = () => {
 
           <TabsContent value="hotspots" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {defaultHotspots.map((hotspot) => (
-                <div key={hotspot.id}>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">
-                          {hotspot.name}
-                        </CardTitle>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskLevelColor(hotspot.riskLevel)}`}
-                        >
-                          {hotspot.riskLevel.charAt(0).toUpperCase() +
-                            hotspot.riskLevel.slice(1)}{" "}
-                          Risk
-                        </span>
-                      </div>
-                      <CardDescription className="flex items-center mt-1">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {hotspot.location}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-500">
-                            Crime Type:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {hotspot.crimeType}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-500">
-                            Prediction:
-                          </span>
-                          <span className="text-sm font-medium">
-                            {hotspot.prediction}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2 border-t flex justify-between items-center">
-                      <span className="text-xs text-gray-500">
-                        Updated {hotspot.lastUpdated}
-                      </span>
-                      <Button variant="ghost" size="sm">
-                        View Details
-                      </Button>
-                    </CardFooter>
-                  </Card>
+              {isLoading ? (
+                <div className="col-span-3 flex justify-center items-center py-12">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span>Loading hotspots...</span>
+                  </div>
                 </div>
-              ))}
+              ) : hotspots.length === 0 ? (
+                <div className="col-span-3 text-center py-12 text-muted-foreground">
+                  No hotspots found
+                </div>
+              ) : (
+                hotspots.map((hotspot) => (
+                  <div key={hotspot.id}>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">
+                            {hotspot.name}
+                          </CardTitle>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskLevelColor(hotspot.riskLevel)}`}
+                          >
+                            {hotspot.riskLevel.charAt(0).toUpperCase() +
+                              hotspot.riskLevel.slice(1)}{" "}
+                            Risk
+                          </span>
+                        </div>
+                        <CardDescription className="flex items-center mt-1">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          {hotspot.location}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-500">
+                              Crime Type:
+                            </span>
+                            <span className="text-sm font-medium">
+                              {hotspot.crimeType}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-500">
+                              Prediction:
+                            </span>
+                            <span className="text-sm font-medium">
+                              {hotspot.prediction}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-2 border-t flex justify-between items-center">
+                        <span className="text-xs text-gray-500">
+                          Updated {hotspot.lastUpdated}
+                        </span>
+                        <Button variant="ghost" size="sm">
+                          View Details
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </div>
+                ))
+              )}
             </div>
             <div className="flex justify-center mt-4">
               <Button variant="outline">

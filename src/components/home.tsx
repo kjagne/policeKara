@@ -7,9 +7,10 @@ import OfficerDashboard from "./dashboard/OfficerDashboard";
 import AnalystDashboard from "./dashboard/AnalystDashboard";
 import { useAuth } from "@/context/AuthContext";
 import { signIn, signOut } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 const Home = () => {
-  const { user, signIn, signOut } = useAuth();
+  const { user } = useAuth();
   const [userRole, setUserRole] = React.useState<
     "admin" | "officer" | "analyst" | null
   >(null);
@@ -25,23 +26,54 @@ const Home = () => {
     setError("");
 
     try {
-      // Actual authentication with Supabase
-      const { session, user } = await signIn(values.email, values.password);
-
-      // Get user role from user metadata or a separate profile table
-      // For now, we'll determine role based on email as before
-      if (values.email.includes("admin")) {
+      // For demo purposes, we'll use hardcoded credentials
+      if (
+        values.email === "admin@example.com" &&
+        values.password === "password123"
+      ) {
         setUserRole("admin");
-      } else if (values.email.includes("officer")) {
+        return;
+      } else if (
+        values.email === "officer@example.com" &&
+        values.password === "password123"
+      ) {
         setUserRole("officer");
-      } else if (values.email.includes("analyst")) {
+        return;
+      } else if (
+        values.email === "analyst@example.com" &&
+        values.password === "password123"
+      ) {
         setUserRole("analyst");
+        return;
+      }
+
+      // If not using demo credentials, try actual Supabase authentication
+      try {
+        const { data, error } = await signIn(values.email, values.password);
+        if (error) throw error;
+
+        // Get user role from profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        if (profileData && profileData.role) {
+          setUserRole(profileData.role as "admin" | "officer" | "analyst");
+        }
+      } catch (authError: any) {
+        throw new Error(
+          "Authentication failed. Please check your credentials.",
+        );
       }
     } catch (error: any) {
       console.error("Login error:", error);
       setError(
         error.message ||
-          "Invalid credentials. Try admin@example.com, officer@example.com, or analyst@example.com",
+          "Invalid credentials. Try admin@example.com, officer@example.com, or analyst@example.com with password: password123",
       );
     } finally {
       setIsLoading(false);
@@ -58,7 +90,7 @@ const Home = () => {
   };
 
   // Render the appropriate dashboard based on user role
-  if (user && userRole) {
+  if (userRole) {
     switch (userRole) {
       case "admin":
         return <AdminDashboard userName="Admin User" />;

@@ -120,7 +120,7 @@ const StationManagement = ({
     },
   ];
 
-  const displayStations = stations.length > 0 ? stations : defaultStations;
+  const displayStations = stations;
 
   const handleEditStation = (station: Station) => {
     setSelectedStation(station);
@@ -130,6 +130,27 @@ const StationManagement = ({
   const handleAddNewStation = () => {
     setSelectedStation(null);
     setIsAddStationOpen(true);
+  };
+
+  const handleCreateStation = async (stationData) => {
+    setIsLoading(true);
+    try {
+      const newStation = await createStation({
+        name: stationData.name,
+        address: stationData.address,
+        district: stationData.district,
+        officers: parseInt(stationData.officers),
+        vehicles: parseInt(stationData.vehicles),
+        status: stationData.status,
+      });
+
+      setStations([...stations, newStation]);
+      setIsAddStationOpen(false);
+    } catch (error) {
+      console.error("Error creating station:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -405,8 +426,52 @@ const StationManagement = ({
             >
               Cancel
             </Button>
-            <Button type="submit">
-              {selectedStation ? "Update Station" : "Add Station"}
+            <Button
+              type="button"
+              onClick={() => {
+                const nameInput = document.getElementById(
+                  "name",
+                ) as HTMLInputElement;
+                const addressInput = document.getElementById(
+                  "address",
+                ) as HTMLInputElement;
+                const districtInput = document.getElementById(
+                  "district",
+                ) as HTMLInputElement;
+                const officersInput = document.getElementById(
+                  "officers",
+                ) as HTMLInputElement;
+                const vehiclesInput = document.getElementById(
+                  "vehicles",
+                ) as HTMLInputElement;
+                const statusSelect = document.querySelector(
+                  '[id^="radix-"][aria-expanded]',
+                ) as HTMLElement;
+
+                const stationData = {
+                  name: nameInput.value,
+                  address: addressInput.value,
+                  district: districtInput.value,
+                  officers: officersInput.value,
+                  vehicles: vehiclesInput.value,
+                  status: statusSelect.textContent || "active",
+                };
+
+                if (selectedStation) {
+                  // Update existing station
+                  // Implementation would go here
+                } else {
+                  // Create new station
+                  handleCreateStation(stationData);
+                }
+              }}
+              disabled={isLoading}
+            >
+              {isLoading
+                ? "Processing..."
+                : selectedStation
+                  ? "Update Station"
+                  : "Add Station"}
             </Button>
           </DialogFooter>
         </DialogContent>

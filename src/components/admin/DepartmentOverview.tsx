@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   Card,
   CardContent,
@@ -443,17 +444,85 @@ interface DepartmentOverviewProps {
 }
 
 const DepartmentOverview = ({
-  stats = {
-    activeCases: 42,
-    solvedCases: 128,
-    pendingCases: 25,
-    totalOfficers: 159,
-    availableOfficers: 112,
-    stations: 5,
-    vehicles: 42,
-    equipmentStatus: 87,
+  initialStats = {
+    activeCases: 0,
+    solvedCases: 0,
+    pendingCases: 0,
+    totalOfficers: 0,
+    availableOfficers: 0,
+    stations: 0,
+    vehicles: 0,
+    equipmentStatus: 0,
   },
 }: DepartmentOverviewProps) => {
+  const [stats, setStats] = useState(initialStats);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchDepartmentStats = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch case statistics
+        const { data: casesData, error: casesError } = await supabase
+          .from("cases")
+          .select("status");
+
+        if (casesError) throw casesError;
+
+        // Count cases by status
+        const activeCases = casesData.filter((c) => c.status === "open").length;
+        const solvedCases = casesData.filter(
+          (c) => c.status === "closed",
+        ).length;
+        const pendingCases = casesData.filter(
+          (c) => c.status === "pending",
+        ).length;
+
+        // Fetch officer statistics
+        const { data: officersData, error: officersError } = await supabase
+          .from("officers")
+          .select("status");
+
+        if (officersError) throw officersError;
+
+        const totalOfficers = officersData.length;
+        const availableOfficers = officersData.filter(
+          (o) => o.status === "active",
+        ).length;
+
+        // Fetch station statistics
+        const { data: stationsData, error: stationsError } = await supabase
+          .from("stations")
+          .select("*");
+
+        if (stationsError) throw stationsError;
+
+        const stations = stationsData.length;
+        const vehicles = stationsData.reduce(
+          (sum, station) => sum + station.vehicles,
+          0,
+        );
+
+        // Set the stats
+        setStats({
+          activeCases,
+          solvedCases,
+          pendingCases,
+          totalOfficers,
+          availableOfficers,
+          stations,
+          vehicles,
+          equipmentStatus: 87, // This could be calculated from another table if available
+        });
+      } catch (error) {
+        console.error("Error fetching department stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDepartmentStats();
+  }, []);
   return (
     <div className="p-6 bg-gray-50">
       <div className="flex items-center justify-between mb-6">

@@ -147,11 +147,45 @@ const CrimeStatistics = ({
         const data = await getCrimeStats(selectedTimeRange);
         if (data && data.length > 0) {
           // Process the data to match our expected format
-          // This would need to be adapted based on your actual data structure
-          setStatsData({
+          const processedData = {
             ...crimeData,
-            // Update with real data
-          });
+            trends: data
+              .filter(
+                (item) =>
+                  item.category === selectedCategory ||
+                  selectedCategory === "All Categories",
+              )
+              .map((item) => ({
+                date: new Date(item.date).toLocaleDateString("en-US", {
+                  month: "short",
+                }),
+                count: item.count,
+              })),
+            distribution: Object.entries(
+              data.reduce((acc, item) => {
+                acc[item.category] = (acc[item.category] || 0) + item.count;
+                return acc;
+              }, {}),
+            ).map(([category, count]) => ({
+              category,
+              count: count as number,
+            })),
+            regional: Object.entries(
+              data.reduce((acc, item) => {
+                acc[item.region] = (acc[item.region] || 0) + item.count;
+                return acc;
+              }, {}),
+            ).map(([region, count]) => ({ region, count: count as number })),
+            timeOfDay: Object.entries(
+              data.reduce((acc, item) => {
+                const time = item.time_of_day || "Unknown";
+                acc[time] = (acc[time] || 0) + item.count;
+                return acc;
+              }, {}),
+            ).map(([time, count]) => ({ time, count: count as number })),
+          };
+
+          setStatsData(processedData);
         }
       } catch (error) {
         console.error("Error fetching crime statistics:", error);
@@ -161,7 +195,7 @@ const CrimeStatistics = ({
     };
 
     fetchCrimeStats();
-  }, [selectedTimeRange]);
+  }, [selectedTimeRange, selectedCategory]);
 
   return (
     <div className="w-full h-full bg-background p-6 overflow-auto">

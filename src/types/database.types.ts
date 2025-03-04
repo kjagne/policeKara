@@ -75,3 +75,20 @@ export interface CrimeStat {
   region: string;
   timeOfDay?: string;
 }
+
+export interface Dataset {
+  id: string;
+  name: string;
+  lastUpdated: string;
+  size: string;
+  type: string;
+  description?: string;
+  source?: string;
+  format?: string;
+}
+
+export interface Profile {
+  id: string;
+  role: "admin" | "officer" | "analyst";
+  created_at: string;
+}
