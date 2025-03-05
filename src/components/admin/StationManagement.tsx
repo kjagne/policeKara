@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getStations, createStation } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import MapView from "./MapView";
 import {
   MapPin,
   Plus,
@@ -385,18 +386,8 @@ const StationManagement: React.FC<StationManagementProps> = ({
           </div>
         </TabsContent>
 
-        <TabsContent
-          value="map"
-          className="h-[600px] bg-muted rounded-md flex items-center justify-center"
-        >
-          <div className="text-center">
-            <MapPin className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Map View</h3>
-            <p className="text-muted-foreground max-w-md mx-auto mt-2">
-              Interactive map showing station locations and coverage areas would
-              be displayed here.
-            </p>
-          </div>
+        <TabsContent value="map">
+          <MapView />
         </TabsContent>
 
         <TabsContent
