@@ -104,6 +104,7 @@ const CaseManagement = () => {
         }
       } catch (error) {
         console.error("Error fetching cases:", error);
+        alert("Error fetching cases: " + error.message);
       } finally {
         setIsLoading(false);
       }

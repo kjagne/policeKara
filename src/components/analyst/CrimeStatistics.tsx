@@ -224,6 +224,7 @@ const CrimeStatistics = ({
         }
       } catch (error) {
         console.error("Error fetching crime statistics:", error);
+        alert("Error fetching crime statistics: " + error.message);
       } finally {
         setIsLoading(false);
       }

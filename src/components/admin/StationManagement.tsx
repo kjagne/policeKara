@@ -85,8 +85,8 @@ const StationManagement = ({
         }
       } catch (error) {
         console.error("Error fetching stations:", error);
-        // If there's an error (like the table doesn't exist), use default stations
-        setStations(defaultStations);
+        // Don't use default stations, show the error
+        alert("Error fetching stations: " + error.message);
       } finally {
         setIsLoading(false);
       }

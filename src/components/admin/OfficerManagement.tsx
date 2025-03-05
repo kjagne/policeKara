@@ -88,6 +88,7 @@ const OfficerManagement = ({ initialOfficers = [] }) => {
         }
       } catch (error) {
         console.error("Error fetching officers:", error);
+        alert("Error fetching officers: " + error.message);
       } finally {
         setIsLoading(false);
       }
