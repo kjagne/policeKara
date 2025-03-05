@@ -42,6 +42,17 @@ const AdminDashboard = ({
     } else {
       setActiveView("overview");
     }
+
+    // Listen for custom events from the Sidebar component
+    const handleSetActiveView = (event) => {
+      setActiveView(event.detail);
+    };
+
+    window.addEventListener("setActiveView", handleSetActiveView);
+
+    return () => {
+      window.removeEventListener("setActiveView", handleSetActiveView);
+    };
   }, [window.location.pathname]);
 
   const renderContent = () => {

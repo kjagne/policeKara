@@ -49,30 +49,35 @@ const Sidebar = ({
       icon: <LayoutDashboard className="h-5 w-5" />,
       href: "/admin",
       active: location.pathname === "/admin",
+      view: "overview",
     },
     {
       title: "Officer Management",
       icon: <Users className="h-5 w-5" />,
       href: "/admin/officers",
       active: location.pathname.includes("/admin/officers"),
+      view: "officers",
     },
     {
       title: "Station Management",
       icon: <Building className="h-5 w-5" />,
       href: "/admin/stations",
       active: location.pathname.includes("/admin/stations"),
+      view: "stations",
     },
     {
       title: "Emergency Response",
       icon: <Shield className="h-5 w-5" />,
       href: "/admin/emergency",
       active: location.pathname.includes("/admin/emergency"),
+      view: "emergency",
     },
     {
       title: "System Configuration",
       icon: <Settings className="h-5 w-5" />,
       href: "/admin/config",
       active: location.pathname.includes("/admin/config"),
+      view: "config",
     },
   ];
 
@@ -170,18 +175,30 @@ const Sidebar = ({
       <div className="flex-1 overflow-auto py-2">
         <nav className="grid gap-1 px-2">
           {activeLinks.map((link, index) => (
-            <Link
+            <div
               key={index}
-              to={link.href}
+              onClick={() => {
+                // For AdminDashboard, we'll use the view property to set the activeView
+                if (userRole === "admin" && link.view) {
+                  // Find the parent component and call setActiveView
+                  const event = new CustomEvent("setActiveView", {
+                    detail: link.view,
+                  });
+                  window.dispatchEvent(event);
+                } else {
+                  // For other roles, use normal navigation
+                  window.location.href = link.href;
+                }
+              }}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted cursor-pointer",
                 link.active && "text-primary bg-muted",
                 isCollapsed && "justify-center px-0",
               )}
             >
               {link.icon}
               {!isCollapsed && <span>{link.title}</span>}
-            </Link>
+            </div>
           ))}
         </nav>
       </div>
