@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getOfficers, createOfficer, updateOfficer } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import {
   Table,
   TableHeader,
@@ -65,9 +66,25 @@ const OfficerManagement = ({ initialOfficers = [] }) => {
     const fetchOfficers = async () => {
       setIsLoading(true);
       try {
-        const data = await getOfficers();
+        // Fetch officers directly from Supabase
+        const { data, error } = await supabase.from("officers").select("*");
+
+        if (error) throw error;
+
         if (data && data.length > 0) {
-          setOfficers(data);
+          // Format the officers to match our Officer interface
+          const formattedOfficers = data.map((officer) => ({
+            id: officer.id,
+            name: officer.name,
+            badge: officer.badge,
+            rank: officer.rank,
+            department: officer.department,
+            status: officer.status,
+            performance: officer.performance,
+            joinDate: officer.join_date,
+            user_id: officer.user_id,
+          }));
+          setOfficers(formattedOfficers);
         }
       } catch (error) {
         console.error("Error fetching officers:", error);
@@ -82,20 +99,45 @@ const OfficerManagement = ({ initialOfficers = [] }) => {
   const handleCreateOfficer = async (officerData) => {
     setIsLoading(true);
     try {
-      const newOfficer = await createOfficer({
-        name: officerData.name,
-        badge: officerData.badge,
-        rank: officerData.rank,
-        department: officerData.department,
-        status: officerData.status,
-        performance: Math.floor(Math.random() * 30) + 70, // Random performance between 70-100
-        join_date: new Date().toISOString().split("T")[0],
-      });
+      // Create a new officer directly with Supabase
+      const { data, error } = await supabase
+        .from("officers")
+        .insert([
+          {
+            name: officerData.name,
+            badge: officerData.badge,
+            rank: officerData.rank,
+            department: officerData.department,
+            status: officerData.status,
+            performance: Math.floor(Math.random() * 30) + 70, // Random performance between 70-100
+            join_date: new Date().toISOString().split("T")[0],
+          },
+        ])
+        .select();
 
-      setOfficers([...officers, newOfficer]);
-      setIsAddOfficerOpen(false);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Format the new officer to match our Officer interface
+        const newOfficer = {
+          id: data[0].id,
+          name: data[0].name,
+          badge: data[0].badge,
+          rank: data[0].rank,
+          department: data[0].department,
+          status: data[0].status,
+          performance: data[0].performance,
+          joinDate: data[0].join_date,
+          user_id: data[0].user_id,
+        };
+
+        setOfficers([...officers, newOfficer]);
+        setIsAddOfficerOpen(false);
+        alert("Officer created successfully!");
+      }
     } catch (error) {
       console.error("Error creating officer:", error);
+      alert("Failed to create officer. Please check the console for details.");
     } finally {
       setIsLoading(false);
     }

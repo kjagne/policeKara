@@ -1,64 +1,127 @@
--- Insert sample data for officers
-INSERT INTO public.officers (name, badge, rank, department, status, performance, join_date)
-VALUES 
-('John Smith', 'B-1234', 'Sergeant', 'Patrol', 'active', 92, '2015-03-12'),
-('Maria Rodriguez', 'B-2345', 'Officer', 'K-9 Unit', 'active', 88, '2018-06-23'),
-('David Chen', 'B-3456', 'Lieutenant', 'Detective', 'active', 95, '2010-11-05'),
-('Sarah Johnson', 'B-4567', 'Officer', 'Traffic', 'on-leave', 78, '2019-02-18'),
-('Michael Brown', 'B-5678', 'Officer', 'Patrol', 'active', 82, '2017-09-30'),
-('Lisa Wilson', 'B-6789', 'Captain', 'SWAT', 'active', 91, '2008-04-15'),
-('Robert Davis', 'B-7890', 'Officer', 'Patrol', 'suspended', 65, '2020-01-10');
-
--- Insert sample data for stations
-INSERT INTO public.stations (name, address, district, officers, vehicles, status)
+-- Insert sample stations
+INSERT INTO stations (name, address, district, officers, vehicles, status)
 VALUES
-('Central Police Station', '123 Main Street, Downtown', 'Central', 45, 12, 'active'),
-('Northside Precinct', '789 North Avenue, Northside', 'North', 32, 8, 'active'),
-('Eastside Station', '456 East Boulevard, Eastside', 'East', 28, 6, 'maintenance'),
-('Westside Outpost', '321 West Road, Westside', 'West', 15, 4, 'inactive');
+  ('Central Police Station', '123 Main Street, Downtown', 'Central', 45, 12, 'active'),
+  ('Northside Precinct', '789 North Avenue, Northside', 'North', 32, 8, 'active'),
+  ('Eastside Station', '456 East Boulevard, Eastside', 'East', 28, 6, 'maintenance'),
+  ('Westside Outpost', '321 West Road, Westside', 'West', 15, 4, 'inactive')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for cases
-INSERT INTO public.cases (title, status, date_created, last_updated, description, assigned_officers)
+-- Insert sample officers
+INSERT INTO officers (name, badge, rank, department, status, performance, join_date)
 VALUES
-('Downtown Robbery', 'open', '2023-05-15', '2023-06-02', 'Armed robbery at First National Bank on Main Street', '[Officer Johnson, Detective Smith]'),
-('Vehicle Theft', 'pending', '2023-05-20', '2023-05-25', 'Stolen vehicle reported at Westside Mall parking lot', '[Officer Williams]'),
-('Residential Burglary', 'closed', '2023-04-10', '2023-05-30', 'Break-in at 123 Oak Street, jewelry and electronics stolen', '[Detective Brown, Officer Davis]');
+  ('John Smith', 'PD-5421', 'Officer', 'Patrol', 'active', 85, '2020-06-15'),
+  ('Maria Rodriguez', 'PD-6234', 'Sergeant', 'Detective', 'active', 92, '2018-03-22'),
+  ('David Chen', 'PD-7845', 'Officer', 'K-9 Unit', 'active', 78, '2021-01-10'),
+  ('Sarah Johnson', 'PD-4532', 'Lieutenant', 'SWAT', 'on-leave', 88, '2015-11-05'),
+  ('Michael Brown', 'PD-3217', 'Officer', 'Traffic', 'active', 72, '2022-05-18')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for evidence
-INSERT INTO public.evidence (case_id, name, type, date_collected, location, status, description)
+-- Insert sample cases
+INSERT INTO cases (title, description, status, date_created, last_updated, assigned_officers)
 VALUES
-((SELECT id FROM public.cases WHERE title = 'Downtown Robbery' LIMIT 1), 'Security Camera Footage', 'Video', '2023-05-15', 'Bank Vault', 'Processing', 'CCTV footage showing suspect entering the bank'),
-((SELECT id FROM public.cases WHERE title = 'Downtown Robbery' LIMIT 1), 'Fingerprints', 'Physical', '2023-05-15', 'Counter Surface', 'Analyzed', 'Partial fingerprints found on the counter'),
-((SELECT id FROM public.cases WHERE title = 'Vehicle Theft' LIMIT 1), 'Tire Marks', 'Physical', '2023-05-20', 'Parking Lot', 'Collected', 'Tire marks found at the scene');
+  ('Robbery Investigation', 'Convenience store robbery on Main Street', 'open', '2023-06-10', '2023-06-15', '["John Smith", "Maria Rodriguez"]'),
+  ('Vehicle Theft', 'Car stolen from downtown parking garage', 'open', '2023-06-12', '2023-06-14', '["David Chen"]'),
+  ('Vandalism Report', 'Graffiti on public buildings in Westside', 'pending', '2023-06-08', '2023-06-13', '["Michael Brown"]'),
+  ('Assault Case', 'Bar fight resulting in injuries', 'closed', '2023-05-28', '2023-06-05', '["Sarah Johnson", "John Smith"]')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for suspects
-INSERT INTO public.suspects (case_id, name, age, gender, status, description, last_known_location)
+-- Insert sample evidence
+INSERT INTO evidence (case_id, name, type, date_collected, location, status, description)
+SELECT
+  c.id,
+  'Security Footage',
+  'Video',
+  '2023-06-10',
+  'Main Street Store',
+  'collected',
+  'CCTV footage showing suspect entering the store'
+FROM cases c
+WHERE c.title = 'Robbery Investigation'
+LIMIT 1
+ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence (case_id, name, type, date_collected, location, status, description)
+SELECT
+  c.id,
+  'Fingerprints',
+  'Forensic',
+  '2023-06-12',
+  'Vehicle Door Handle',
+  'analyzing',
+  'Fingerprints lifted from driver side door handle'
+FROM cases c
+WHERE c.title = 'Vehicle Theft'
+LIMIT 1
+ON CONFLICT DO NOTHING;
+
+-- Insert sample suspects
+INSERT INTO suspects (case_id, name, age, gender, status, description, last_known_location)
+SELECT
+  c.id,
+  'John Doe',
+  32,
+  'Male',
+  'wanted',
+  'Approximately 6ft tall, wearing dark clothing and a mask',
+  'Last seen heading east on Main Street'
+FROM cases c
+WHERE c.title = 'Robbery Investigation'
+LIMIT 1
+ON CONFLICT DO NOTHING;
+
+INSERT INTO suspects (case_id, name, age, gender, status, description, last_known_location)
+SELECT
+  c.id,
+  'Jane Smith',
+  28,
+  'Female',
+  'under investigation',
+  'Blonde hair, medium build, tattoo on right arm',
+  'Northside apartment complex'
+FROM cases c
+WHERE c.title = 'Assault Case'
+LIMIT 1
+ON CONFLICT DO NOTHING;
+
+-- Insert sample crime statistics
+INSERT INTO crime_statistics (date, category, count, region, time_of_day)
 VALUES
-((SELECT id FROM public.cases WHERE title = 'Downtown Robbery' LIMIT 1), 'John Doe', 32, 'Male', 'Wanted', 'Approximately 6ft tall, medium build, last seen wearing a black hoodie', 'Downtown area'),
-((SELECT id FROM public.cases WHERE title = 'Vehicle Theft' LIMIT 1), 'Jane Smith', 28, 'Female', 'Under Investigation', 'Blonde hair, slim build, tattoo on right arm', 'Westside Apartments');
+  ('2023-06-01', 'Theft', 12, 'Downtown', 'Evening'),
+  ('2023-06-01', 'Assault', 5, 'Downtown', 'Night'),
+  ('2023-06-01', 'Vandalism', 8, 'Northside', 'Night'),
+  ('2023-06-02', 'Theft', 9, 'Eastside', 'Afternoon'),
+  ('2023-06-02', 'Drug Offenses', 6, 'Westside', 'Evening'),
+  ('2023-06-03', 'Burglary', 4, 'Northside', 'Night'),
+  ('2023-06-03', 'Theft', 11, 'Downtown', 'Afternoon'),
+  ('2023-06-04', 'Assault', 7, 'Westside', 'Night'),
+  ('2023-06-04', 'Fraud', 3, 'Eastside', 'Morning')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for reports
-INSERT INTO public.reports (title, type, description, incident_date, location, involved_parties, evidence_refs, officer_id, department_id, submitted_date, status)
+-- Insert sample emergency calls
+INSERT INTO emergency_calls (caller_name, phone_number, location, description, priority, status, created_at)
 VALUES
-('Robbery Investigation Report', 'Investigation', 'Detailed report of the downtown bank robbery investigation', '2023-05-15', '123 Main Street', 'John Doe, Bank Staff', 'E-001, E-002', 'OFF-123', 'DEPT-001', '2023-05-15', 'Approved'),
-('Traffic Incident Report', 'Incident', 'Report of a traffic accident at Main and 5th', '2023-06-22', 'Main St & 5th Ave', 'Multiple Drivers', 'None', 'OFF-123', 'DEPT-001', '2023-06-22', 'Pending Review'),
-('Monthly Patrol Summary', 'Summary', 'Summary of patrol activities for June 2023', '2023-07-01', 'Downtown District', 'Patrol Officers', 'None', 'OFF-123', 'DEPT-001', '2023-07-01', 'Approved');
+  ('John Smith', '555-123-4567', '123 Main St, Downtown', 'Reported break-in at a convenience store', 'high', 'pending', NOW() - INTERVAL '30 minutes'),
+  ('Mary Johnson', '555-987-6543', '456 Oak Ave, Northside', 'Traffic accident with injuries', 'high', 'dispatched', NOW() - INTERVAL '1 hour'),
+  ('Robert Davis', '555-456-7890', '789 Pine Rd, Westside', 'Suspicious person in the neighborhood', 'medium', 'pending', NOW() - INTERVAL '15 minutes'),
+  ('Sarah Wilson', '555-789-0123', '101 Elm St, Eastside', 'Noise complaint from apartment building', 'low', 'resolved', NOW() - INTERVAL '2 hours')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for crime statistics
-INSERT INTO public.crime_statistics (date, category, count, region, time_of_day)
+-- Insert sample emergency units
+INSERT INTO emergency_units (name, type, status, location, last_updated)
 VALUES
-('2023-06-01', 'Theft', 24, 'Downtown', 'Evening'),
-('2023-06-01', 'Assault', 12, 'Downtown', 'Night'),
-('2023-06-01', 'Burglary', 8, 'North District', 'Night'),
-('2023-06-01', 'Vandalism', 15, 'East District', 'Evening'),
-('2023-06-01', 'Drug Offenses', 10, 'West District', 'Afternoon');
+  ('Patrol Unit 1', 'patrol', 'available', 'Downtown District', NOW()),
+  ('Patrol Unit 2', 'patrol', 'responding', 'En route to 456 Oak Ave', NOW() - INTERVAL '10 minutes'),
+  ('Ambulance 1', 'ambulance', 'responding', 'En route to 456 Oak Ave', NOW() - INTERVAL '12 minutes'),
+  ('SWAT Team', 'swat', 'available', 'Central Station', NOW() - INTERVAL '45 minutes')
+ON CONFLICT DO NOTHING;
 
--- Insert sample data for datasets
-INSERT INTO public.datasets (name, last_updated, size, type, description)
+-- Insert sample datasets
+INSERT INTO datasets (name, last_updated, size, type, description)
 VALUES
-('Crime Records 2023', '2023-12-15', '1.2 GB', 'Historical', 'Comprehensive crime records for the year 2023'),
-('Officer Performance Data', '2023-11-30', '450 MB', 'Performance', 'Performance metrics for all officers'),
-('Resource Allocation Metrics', '2023-12-01', '320 MB', 'Resource', 'Data on resource allocation across districts'),
-('Patrol Patterns 2020-2023', '2023-10-15', '2.1 GB', 'Historical', 'Historical patrol patterns over 3 years'),
-('Emergency Response Times', '2023-12-10', '780 MB', 'Performance', 'Response time data for emergency calls');
-
+  ('Crime Records 2023', '2023-12-15', '1.2 GB', 'Historical', 'Annual crime records for statistical analysis'),
+  ('Officer Performance Data', '2023-11-30', '450 MB', 'Performance', 'Officer performance metrics and evaluations'),
+  ('Resource Allocation Metrics', '2023-12-01', '320 MB', 'Resource', 'Data on resource distribution and utilization'),
+  ('Patrol Patterns 2020-2023', '2023-10-15', '2.1 GB', 'Historical', 'Historical patrol routes and effectiveness analysis'),
+  ('Emergency Response Times', '2023-12-10', '780 MB', 'Performance', 'Response time data for emergency calls')
+ON CONFLICT DO NOTHING;

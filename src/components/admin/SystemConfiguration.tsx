@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Card,
@@ -27,6 +28,8 @@ import {
   Database,
   Settings,
   Save,
+  CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 
 interface SystemConfigurationProps {
@@ -37,6 +40,82 @@ const SystemConfiguration = ({
   initialTab = "general",
 }: SystemConfigurationProps) => {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [databaseStatus, setDatabaseStatus] = useState<"connected" | "error">(
+    "connected",
+  );
+  const [tableStats, setTableStats] = useState<{ [key: string]: number }>({});
+
+  // Check database connection on component mount
+  useEffect(() => {
+    const checkDatabaseConnection = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("stations")
+          .select("count()")
+          .single();
+        if (error) throw error;
+        setDatabaseStatus("connected");
+
+        // Get table statistics
+        fetchTableStats();
+      } catch (error) {
+        console.error("Database connection error:", error);
+        setDatabaseStatus("error");
+      }
+    };
+
+    checkDatabaseConnection();
+  }, []);
+
+  const fetchTableStats = async () => {
+    const tables = [
+      "stations",
+      "officers",
+      "cases",
+      "evidence",
+      "suspects",
+      "reports",
+      "crime_statistics",
+      "datasets",
+      "emergency_calls",
+      "emergency_units",
+      "profiles",
+    ];
+
+    const stats = {};
+
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select("count()")
+          .single();
+        if (error) {
+          console.error(`Error fetching count for ${table}:`, error);
+          stats[table] = 0;
+        } else {
+          stats[table] = data?.count || 0;
+        }
+      } catch (error) {
+        console.error(`Error fetching count for ${table}:`, error);
+        stats[table] = 0;
+      }
+    }
+
+    setTableStats(stats);
+  };
+
+  const handleSaveSettings = () => {
+    setIsLoading(true);
+    // Simulate saving settings
+    setTimeout(() => {
+      setIsLoading(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }, 1000);
+  };
 
   return (
     <div className="w-full h-full p-6 bg-background">
@@ -47,10 +126,22 @@ const SystemConfiguration = ({
             Manage system-wide settings and preferences
           </p>
         </div>
-        <Button>
-          <Save className="mr-2 h-4 w-4" />
-          Save Changes
-        </Button>
+        <div className="flex items-center space-x-2">
+          {saveSuccess && (
+            <div className="flex items-center text-green-600 mr-2">
+              <CheckCircle className="h-4 w-4 mr-1" />
+              <span className="text-sm">Settings saved</span>
+            </div>
+          )}
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={handleSaveSettings} disabled={isLoading}>
+            <Save className="mr-2 h-4 w-4" />
+            {isLoading ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -475,84 +566,143 @@ const SystemConfiguration = ({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
+                <div
+                  className={`w-3 h-3 rounded-full ${databaseStatus === "connected" ? "bg-green-500" : "bg-red-500"}`}
+                ></div>
+                <span>
+                  {databaseStatus === "connected"
+                    ? "Database connected"
+                    : "Database connection error"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Database Type</label>
-                  <Select defaultValue="postgres">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select database type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="postgres">PostgreSQL</SelectItem>
-                      <SelectItem value="mysql">MySQL</SelectItem>
-                      <SelectItem value="mssql">
-                        Microsoft SQL Server
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium">Database Host</label>
+                  <Input defaultValue={supabase.supabaseUrl} disabled />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Database Name</label>
+                  <Input defaultValue="police_management" disabled />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Database User</label>
+                  <Input defaultValue="postgres" disabled />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    Connection String
+                    Database Password
                   </label>
-                  <Input type="password" defaultValue="••••••••••••••••" />
+                  <Input type="password" defaultValue="********" disabled />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Automatic Backups</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Schedule regular database backups
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
+              <div className="space-y-4 pt-4">
+                <h3 className="text-lg font-medium">Database Maintenance</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline">Backup Database</Button>
+                  <Button variant="outline">Restore Database</Button>
+                  <Button variant="outline">Optimize Database</Button>
+                  <Button variant="outline">Clear Cache</Button>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Backup Frequency</label>
-                <Select defaultValue="daily">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select backup frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hourly">Hourly</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Backup Retention (days)
-                </label>
-                <Input type="number" defaultValue="30" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Data Encryption</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Enable encryption for sensitive data
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
-
-              <div className="pt-4 flex justify-between">
-                <Button variant="outline">
-                  <Lock className="mr-2 h-4 w-4" />
-                  Test Connection
-                </Button>
-                <Button variant="destructive">Run Manual Backup</Button>
               </div>
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Database Tables</CardTitle>
+              <CardDescription>
+                Overview of database tables and records
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Table Name</th>
+                      <th className="text-left p-3 font-medium">Records</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="p-3">stations</td>
+                      <td className="p-3">{tableStats.stations || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t bg-muted/50">
+                      <td className="p-3">officers</td>
+                      <td className="p-3">{tableStats.officers || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-3">cases</td>
+                      <td className="p-3">{tableStats.cases || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t bg-muted/50">
+                      <td className="p-3">evidence</td>
+                      <td className="p-3">{tableStats.evidence || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-3">suspects</td>
+                      <td className="p-3">{tableStats.suspects || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t bg-muted/50">
+                      <td className="p-3">reports</td>
+                      <td className="p-3">{tableStats.reports || 0}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-3">crime_statistics</td>
+                      <td className="p-3">
+                        {tableStats.crime_statistics || 0}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" onClick={fetchTableStats}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Table Statistics
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

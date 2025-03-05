@@ -32,18 +32,21 @@ const Home = () => {
         values.password === "password123"
       ) {
         setUserRole("admin");
+        window.location.href = "/admin";
         return;
       } else if (
         values.email === "officer@example.com" &&
         values.password === "password123"
       ) {
         setUserRole("officer");
+        window.location.href = "/officer";
         return;
       } else if (
         values.email === "analyst@example.com" &&
         values.password === "password123"
       ) {
         setUserRole("analyst");
+        window.location.href = "/analyst";
         return;
       }
 

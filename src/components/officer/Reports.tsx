@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getReports, createReport } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -134,10 +135,25 @@ const Reports = ({
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const data = await getReports();
+        // Fetch reports directly from Supabase
+        const { data, error } = await supabase.from("reports").select("*");
+
+        if (error) throw error;
+
         if (data && data.length > 0) {
           // Update the reports state with data from the database
+          const formattedReports = data.map((report) => ({
+            id: report.id,
+            title: report.title,
+            type: report.type,
+            submittedDate: new Date(report.submitted_date).toLocaleDateString(),
+            status:
+              report.status.charAt(0).toUpperCase() + report.status.slice(1),
+          }));
+
           // This would replace the mock data
+          // setReports(formattedReports);
+          console.log("Fetched reports:", formattedReports);
         }
       } catch (error) {
         console.error("Error fetching reports:", error);
@@ -150,30 +166,46 @@ const Reports = ({
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof reportFormSchema>) => {
     try {
-      // Send the data to Supabase
-      const result = await createReport({
-        ...data,
-        officerId,
-        departmentId,
-        submittedDate: new Date().toISOString(),
-        status: "Pending Review",
-      });
+      // Send the data directly to Supabase
+      const { data: result, error } = await supabase
+        .from("reports")
+        .insert([
+          {
+            title: data.title,
+            type: data.type,
+            description: data.description,
+            incident_date: data.incidentDate,
+            location: data.location,
+            involved_parties: data.involvedParties || null,
+            evidence_refs: data.evidenceRefs || null,
+            officer_id: officerId,
+            department_id: departmentId,
+            submitted_date: new Date().toISOString(),
+            status: "pending review",
+          },
+        ])
+        .select();
+
+      if (error) throw error;
 
       console.log("Report submitted:", result);
       alert("Report submitted successfully!");
       form.reset();
 
-      // Add the new report to the list
-      const newReport = {
-        id: result.id,
-        title: result.title,
-        type: result.type,
-        submittedDate: new Date().toLocaleDateString(),
-        status: "Pending Review",
-      };
+      if (result && result.length > 0) {
+        // Add the new report to the list
+        const newReport = {
+          id: result[0].id,
+          title: result[0].title,
+          type: result[0].type,
+          submittedDate: new Date().toLocaleDateString(),
+          status: "Pending Review",
+        };
 
-      // Update the reports state
-      // This would be done if we were using a state for reports
+        // Update the reports state
+        // This would be done if we were using a state for reports
+        // setPastReports([newReport, ...pastReports]);
+      }
     } catch (error) {
       console.error("Error submitting report:", error);
       alert("Failed to submit report. Please try again.");

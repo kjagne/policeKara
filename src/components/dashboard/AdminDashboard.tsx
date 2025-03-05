@@ -1,26 +1,70 @@
 import React, { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import DepartmentOverview from "../admin/DepartmentOverview";
 import OfficerManagement from "../admin/OfficerManagement";
 import StationManagement from "../admin/StationManagement";
 import SystemConfiguration from "../admin/SystemConfiguration";
+import EmergencyResponseDashboard from "../admin/EmergencyResponseDashboard";
 
 interface AdminDashboardProps {
   userName?: string;
   userAvatar?: string;
-  defaultCollapsed?: boolean;
+  defaultView?: "overview" | "officers" | "stations" | "emergency" | "config";
 }
 
 const AdminDashboard = ({
   userName = "Admin User",
-  userAvatar = "",
-  defaultCollapsed = false,
+  userAvatar = "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
+  defaultView = "overview",
 }: AdminDashboardProps) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(defaultCollapsed);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeView, setActiveView] = useState<string>(defaultView);
 
   const handleToggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  // Check if we're using nested routes with Outlet
+  const isUsingNestedRoutes = window.location.pathname !== "/admin";
+
+  // Force the activeView to match the current path
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes("/admin/officers")) {
+      setActiveView("officers");
+    } else if (path.includes("/admin/stations")) {
+      setActiveView("stations");
+    } else if (path.includes("/admin/emergency")) {
+      setActiveView("emergency");
+    } else if (path.includes("/admin/config")) {
+      setActiveView("config");
+    } else {
+      setActiveView("overview");
+    }
+  }, [window.location.pathname]);
+
+  const renderContent = () => {
+    // If using nested routes, render the Outlet
+    if (isUsingNestedRoutes) {
+      return <Outlet />;
+    }
+
+    // Otherwise, render the appropriate component based on activeView
+    switch (activeView) {
+      case "overview":
+        return <DepartmentOverview />;
+      case "officers":
+        return <OfficerManagement />;
+      case "stations":
+        return <StationManagement />;
+      case "emergency":
+        return <EmergencyResponseDashboard />;
+      case "config":
+        return <SystemConfiguration />;
+      default:
+        return <DepartmentOverview />;
+    }
   };
 
   return (
@@ -32,14 +76,7 @@ const AdminDashboard = ({
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
       />
-      <div className="flex-1 overflow-auto">
-        <Routes>
-          <Route path="/" element={<DepartmentOverview />} />
-          <Route path="/officers" element={<OfficerManagement />} />
-          <Route path="/stations" element={<StationManagement />} />
-          <Route path="/config" element={<SystemConfiguration />} />
-        </Routes>
-      </div>
+      <div className="flex-1 overflow-auto">{renderContent()}</div>
     </div>
   );
 };

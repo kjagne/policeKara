@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getStations, createStation } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { MapPin, Plus, Edit, Trash2, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,14 +62,30 @@ const StationManagement = ({
     const fetchStations = async () => {
       setIsLoading(true);
       try {
-        const data = await getStations();
+        // Fetch stations directly from Supabase
+        const { data, error } = await supabase.from("stations").select("*");
+
+        if (error) throw error;
+
         if (data && data.length > 0) {
-          setStations(data);
+          // Format the stations to match our Station interface
+          const formattedStations = data.map((station) => ({
+            id: station.id,
+            name: station.name,
+            address: station.address,
+            district: station.district,
+            officers: station.officers,
+            vehicles: station.vehicles,
+            status: station.status,
+          }));
+          setStations(formattedStations);
         } else {
+          // If no stations in the database, use default stations
           setStations(defaultStations);
         }
       } catch (error) {
         console.error("Error fetching stations:", error);
+        // If there's an error (like the table doesn't exist), use default stations
         setStations(defaultStations);
       } finally {
         setIsLoading(false);
@@ -127,6 +144,28 @@ const StationManagement = ({
     setIsAddStationOpen(true);
   };
 
+  const handleDeleteStation = async (id: string) => {
+    if (confirm("Are you sure you want to delete this station?")) {
+      setIsLoading(true);
+      try {
+        const { error } = await supabase.from("stations").delete().eq("id", id);
+
+        if (error) throw error;
+
+        // Remove the station from the local state
+        setStations(stations.filter((station) => station.id !== id));
+        alert("Station deleted successfully!");
+      } catch (error) {
+        console.error("Error deleting station:", error);
+        alert(
+          "Failed to delete station. Please check the console for details.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const handleAddNewStation = () => {
     setSelectedStation(null);
     setIsAddStationOpen(true);
@@ -135,19 +174,42 @@ const StationManagement = ({
   const handleCreateStation = async (stationData) => {
     setIsLoading(true);
     try {
-      const newStation = await createStation({
-        name: stationData.name,
-        address: stationData.address,
-        district: stationData.district,
-        officers: parseInt(stationData.officers),
-        vehicles: parseInt(stationData.vehicles),
-        status: stationData.status,
-      });
+      // Create a new station directly with Supabase
+      const { data, error } = await supabase
+        .from("stations")
+        .insert([
+          {
+            name: stationData.name,
+            address: stationData.address,
+            district: stationData.district,
+            officers: parseInt(stationData.officers),
+            vehicles: parseInt(stationData.vehicles),
+            status: stationData.status,
+          },
+        ])
+        .select();
 
-      setStations([...stations, newStation]);
-      setIsAddStationOpen(false);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Format the new station to match our Station interface
+        const newStation = {
+          id: data[0].id,
+          name: data[0].name,
+          address: data[0].address,
+          district: data[0].district,
+          officers: data[0].officers,
+          vehicles: data[0].vehicles,
+          status: data[0].status,
+        };
+
+        setStations([...stations, newStation]);
+        setIsAddStationOpen(false);
+        alert("Station created successfully!");
+      }
     } catch (error) {
       console.error("Error creating station:", error);
+      alert("Failed to create station. Please check the console for details.");
     } finally {
       setIsLoading(false);
     }
@@ -281,7 +343,7 @@ const StationManagement = ({
                     <TableCell>{station.vehicles}</TableCell>
                     <TableCell>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${getStatusColor(station.status)}`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(station.status)}`}
                       >
                         {station.status.charAt(0).toUpperCase() +
                           station.status.slice(1)}
@@ -296,7 +358,12 @@ const StationManagement = ({
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteStation(station.id)}
+                          disabled={isLoading}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -445,8 +512,36 @@ const StationManagement = ({
                   "vehicles",
                 ) as HTMLInputElement;
                 const statusSelect = document.querySelector(
-                  '[id^="radix-"][aria-expanded]',
+                  'button[role="combobox"]',
                 ) as HTMLElement;
+
+                // Validate inputs
+                if (!nameInput.value) {
+                  alert("Station name is required");
+                  return;
+                }
+                if (!addressInput.value) {
+                  alert("Address is required");
+                  return;
+                }
+                if (!districtInput.value) {
+                  alert("District is required");
+                  return;
+                }
+                if (
+                  !officersInput.value ||
+                  isNaN(parseInt(officersInput.value))
+                ) {
+                  alert("Officers must be a valid number");
+                  return;
+                }
+                if (
+                  !vehiclesInput.value ||
+                  isNaN(parseInt(vehiclesInput.value))
+                ) {
+                  alert("Vehicles must be a valid number");
+                  return;
+                }
 
                 const stationData = {
                   name: nameInput.value,
@@ -454,7 +549,7 @@ const StationManagement = ({
                   district: districtInput.value,
                   officers: officersInput.value,
                   vehicles: vehiclesInput.value,
-                  status: statusSelect.textContent || "active",
+                  status: statusSelect.textContent?.toLowerCase() || "active",
                 };
 
                 if (selectedStation) {

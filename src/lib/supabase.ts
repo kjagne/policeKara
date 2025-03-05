@@ -1,10 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Default values for development - replace with your actual Supabase project details
-const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL || "https://example.supabase.co";
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4YW1wbGUiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYxMzA5ODU0MCwiZXhwIjoxOTI4Njc0NTQwfQ.example";
+// Use environment variables for Supabase connection
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Log connection status for debugging
+console.log("Supabase URL:", supabaseUrl ? "✅ Connected" : "❌ Missing");
+console.log(
+  "Supabase Anon Key:",
+  supabaseAnonKey ? "✅ Connected" : "❌ Missing",
+);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

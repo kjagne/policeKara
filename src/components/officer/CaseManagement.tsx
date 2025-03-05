@@ -82,7 +82,10 @@ const CaseManagement = () => {
     const fetchCases = async () => {
       setIsLoading(true);
       try {
-        const data = await getCases();
+        // Fetch cases directly from Supabase
+        const { data, error } = await supabase.from("cases").select("*");
+        if (error) throw error;
+
         if (data && data.length > 0) {
           // Transform the data to match our Case interface
           const formattedCases = data.map((item) => ({
@@ -160,21 +163,47 @@ const CaseManagement = () => {
   const handleCreateCase = async (caseData) => {
     setIsLoading(true);
     try {
-      const newCase = await createCase({
-        title: caseData.title,
-        description: caseData.description,
-        assigned_officers: JSON.stringify(
-          caseData.assignedOfficers.split(",").map((o) => o.trim()),
-        ),
-        status: "open",
-        date_created: new Date().toISOString().split("T")[0],
-        last_updated: new Date().toISOString().split("T")[0],
-      });
+      // Create a new case directly with Supabase
+      const { data, error } = await supabase
+        .from("cases")
+        .insert([
+          {
+            title: caseData.title,
+            description: caseData.description,
+            assigned_officers: JSON.stringify(
+              caseData.assignedOfficers.split(",").map((o) => o.trim()),
+            ),
+            status: "open",
+            date_created: new Date().toISOString().split("T")[0],
+            last_updated: new Date().toISOString().split("T")[0],
+          },
+        ])
+        .select();
 
-      setCases([...cases, newCase]);
-      setIsNewCaseDialogOpen(false);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Format the new case to match our Case interface
+        const newCase = {
+          id: data[0].id,
+          title: data[0].title,
+          status: data[0].status as "open" | "closed" | "pending",
+          dateCreated: data[0].date_created,
+          lastUpdated: data[0].last_updated,
+          description: data[0].description,
+          assignedOfficers:
+            typeof data[0].assigned_officers === "string"
+              ? JSON.parse(data[0].assigned_officers)
+              : data[0].assigned_officers,
+        };
+
+        setCases([...cases, newCase]);
+        setIsNewCaseDialogOpen(false);
+        alert("Case created successfully!");
+      }
     } catch (error) {
       console.error("Error creating case:", error);
+      alert("Failed to create case. Please check the console for details.");
     } finally {
       setIsLoading(false);
     }

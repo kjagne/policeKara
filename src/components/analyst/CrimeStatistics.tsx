@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getCrimeStats } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import {
   Card,
   CardContent,
@@ -144,23 +145,57 @@ const CrimeStatistics = ({
     const fetchCrimeStats = async () => {
       setIsLoading(true);
       try {
-        const data = await getCrimeStats(selectedTimeRange);
+        // Fetch crime statistics directly from Supabase
+        let query = supabase.from("crime_statistics").select("*");
+
+        // Apply time range filter if needed
+        if (selectedTimeRange !== "All Time") {
+          const today = new Date();
+          let startDate;
+
+          switch (selectedTimeRange) {
+            case "Last 7 Days":
+              startDate = new Date(today);
+              startDate.setDate(today.getDate() - 7);
+              break;
+            case "Last 30 Days":
+              startDate = new Date(today);
+              startDate.setDate(today.getDate() - 30);
+              break;
+            case "Last 90 Days":
+              startDate = new Date(today);
+              startDate.setDate(today.getDate() - 90);
+              break;
+            case "Last Year":
+              startDate = new Date(today);
+              startDate.setFullYear(today.getFullYear() - 1);
+              break;
+          }
+
+          if (startDate) {
+            query = query.gte("date", startDate.toISOString().split("T")[0]);
+          }
+        }
+
+        // Apply category filter if needed
+        if (selectedCategory !== "All Categories") {
+          query = query.eq("category", selectedCategory);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
         if (data && data.length > 0) {
           // Process the data to match our expected format
           const processedData = {
             ...crimeData,
-            trends: data
-              .filter(
-                (item) =>
-                  item.category === selectedCategory ||
-                  selectedCategory === "All Categories",
-              )
-              .map((item) => ({
-                date: new Date(item.date).toLocaleDateString("en-US", {
-                  month: "short",
-                }),
-                count: item.count,
-              })),
+            trends: data.map((item) => ({
+              date: new Date(item.date).toLocaleDateString("en-US", {
+                month: "short",
+              }),
+              count: item.count,
+            })),
             distribution: Object.entries(
               data.reduce((acc, item) => {
                 acc[item.category] = (acc[item.category] || 0) + item.count;
