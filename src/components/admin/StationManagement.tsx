@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { getStations, createStation } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { MapPin, Plus, Edit, Trash2, Search, Filter } from "lucide-react";
+import {
+  MapPin,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+  ArrowRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -52,11 +61,12 @@ interface StationManagementProps {
   stations?: Station[];
 }
 
-const StationManagement = ({
+const StationManagement: React.FC<StationManagementProps> = ({
   initialStations = [],
-}: StationManagementProps) => {
+}) => {
   const [stations, setStations] = useState(initialStations);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchStations = async () => {
@@ -171,7 +181,7 @@ const StationManagement = ({
     setIsAddStationOpen(true);
   };
 
-  const handleCreateStation = async (stationData) => {
+  const handleCreateStation = async (stationData: any) => {
     setIsLoading(true);
     try {
       // Create a new station directly with Supabase
@@ -400,6 +410,15 @@ const StationManagement = ({
               here, allowing administrators to distribute officers, vehicles,
               and equipment across stations.
             </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/admin/stations/hotspots")}
+              className="mt-4"
+            >
+              View All Hotspots
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

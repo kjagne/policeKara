@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import {
   Card,
@@ -85,6 +86,7 @@ const DataAnalysis = ({
 }: DataAnalysisProps) => {
   const [datasets, setDatasets] = useState(initialDatasets);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDatasets = async () => {
@@ -527,10 +529,22 @@ const DataAnalysis = ({
                         <td className="p-3">{dataset.size}</td>
                         <td className="p-3">
                           <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                navigate(
+                                  `/analyst/analysis/dataset/${dataset.id}`,
+                                )
+                              }
+                            >
                               <Search className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {}}
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                           </div>

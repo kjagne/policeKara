@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getReports, createReport } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useForm } from "react-hook-form";
@@ -113,6 +114,7 @@ const Reports = ({
   officerId = "OFF-123",
   departmentId = "DEPT-001",
 }: ReportsProps) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("submit");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -500,11 +502,21 @@ const Reports = ({
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  navigate(`/officer/reports/${report.id}`)
+                                }
+                              >
                                 <FileText className="h-4 w-4" />
                                 <span className="sr-only">View</span>
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {}}
+                              >
                                 <Download className="h-4 w-4" />
                                 <span className="sr-only">Download</span>
                               </Button>

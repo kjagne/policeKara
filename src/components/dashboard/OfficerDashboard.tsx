@@ -1,4 +1,5 @@
 import React from "react";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import PersonalStats from "../officer/PersonalStats";
 import CaseManagement from "../officer/CaseManagement";
@@ -20,22 +21,12 @@ const OfficerDashboard = ({
   defaultTab = "stats",
 }: OfficerDashboardProps) => {
   const location = useLocation();
-  const [activeTab, setActiveTab] = React.useState<string>(defaultTab);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   // Parse the path to determine which tab should be active
   React.useEffect(() => {
-    const path = location.pathname;
-    if (path.includes("/officer/cases")) {
-      setActiveTab("cases");
-    } else if (path.includes("/officer/roster")) {
-      setActiveTab("roster");
-    } else if (path.includes("/officer/reports")) {
-      setActiveTab("reports");
-    } else {
-      setActiveTab("stats");
-    }
-  }, [location]);
+    // No need to set active tab as we're using React Router
+  }, []);
 
   const handleToggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
@@ -52,10 +43,7 @@ const OfficerDashboard = ({
       />
 
       <div className="flex-1 overflow-auto">
-        {activeTab === "stats" && <PersonalStats />}
-        {activeTab === "cases" && <CaseManagement />}
-        {activeTab === "roster" && <DutyRoster />}
-        {activeTab === "reports" && <Reports />}
+        <Outlet />
       </div>
     </div>
   );

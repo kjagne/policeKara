@@ -528,10 +528,12 @@ const DepartmentOverview = ({
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Department Overview</h1>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => {}}>
             Export
           </Button>
-          <Button size="sm">Refresh Data</Button>
+          <Button size="sm" onClick={() => window.location.reload()}>
+            Refresh Data
+          </Button>
         </div>
       </div>
 

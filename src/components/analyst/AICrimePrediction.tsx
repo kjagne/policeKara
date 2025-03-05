@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import {
   MapPin,
@@ -54,7 +55,8 @@ interface ReportProps {
   status: "completed" | "pending" | "draft";
 }
 
-const AICrimePrediction = () => {
+const AICrimePrediction: React.FC = () => {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<string>("7days");
 
   const [hotspots, setHotspots] = useState<HotspotProps[]>([]);
@@ -73,7 +75,7 @@ const AICrimePrediction = () => {
 
         if (data && data.length > 0) {
           // Group by region and category to identify hotspots
-          const regionCounts = {};
+          const regionCounts: Record<string, any> = {};
 
           data.forEach((stat) => {
             const key = `${stat.region}-${stat.category}`;
@@ -91,7 +93,7 @@ const AICrimePrediction = () => {
           const hotspotData = Object.values(regionCounts)
             .sort((a, b) => b.count - a.count)
             .slice(0, 4)
-            .map((item, index) => {
+            .map((item: any, index) => {
               const riskLevel =
                 index === 0 || index === 1
                   ? "high"
@@ -352,7 +354,10 @@ const AICrimePrediction = () => {
               )}
             </div>
             <div className="flex justify-center mt-4">
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/analyst/prediction/hotspots")}
+              >
                 View All Hotspots
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -36,6 +36,7 @@ const Sidebar = ({
   onToggleCollapse = () => {},
 }: SidebarProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
 
   const toggleCollapse = () => {
@@ -178,17 +179,8 @@ const Sidebar = ({
             <div
               key={index}
               onClick={() => {
-                // For AdminDashboard, we'll use the view property to set the activeView
-                if (userRole === "admin" && link.view) {
-                  // Find the parent component and call setActiveView
-                  const event = new CustomEvent("setActiveView", {
-                    detail: link.view,
-                  });
-                  window.dispatchEvent(event);
-                } else {
-                  // For other roles, use normal navigation
-                  window.location.href = link.href;
-                }
+                // Navigate using React Router navigate function
+                navigate(link.href);
               }}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted cursor-pointer",
@@ -227,7 +219,7 @@ const Sidebar = ({
             </div>
           )}
           {!isCollapsed && (
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
               <LogOut className="h-5 w-5" />
             </Button>
           )}

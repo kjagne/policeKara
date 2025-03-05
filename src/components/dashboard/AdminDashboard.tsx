@@ -25,57 +25,9 @@ const AdminDashboard = ({
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Check if we're using nested routes with Outlet
-  const isUsingNestedRoutes = window.location.pathname !== "/admin";
-
-  // Force the activeView to match the current path
-  React.useEffect(() => {
-    const path = window.location.pathname;
-    if (path.includes("/admin/officers")) {
-      setActiveView("officers");
-    } else if (path.includes("/admin/stations")) {
-      setActiveView("stations");
-    } else if (path.includes("/admin/emergency")) {
-      setActiveView("emergency");
-    } else if (path.includes("/admin/config")) {
-      setActiveView("config");
-    } else {
-      setActiveView("overview");
-    }
-
-    // Listen for custom events from the Sidebar component
-    const handleSetActiveView = (event) => {
-      setActiveView(event.detail);
-    };
-
-    window.addEventListener("setActiveView", handleSetActiveView);
-
-    return () => {
-      window.removeEventListener("setActiveView", handleSetActiveView);
-    };
-  }, [window.location.pathname]);
-
+  // Always use Outlet for proper React Router navigation
   const renderContent = () => {
-    // If using nested routes, render the Outlet
-    if (isUsingNestedRoutes) {
-      return <Outlet />;
-    }
-
-    // Otherwise, render the appropriate component based on activeView
-    switch (activeView) {
-      case "overview":
-        return <DepartmentOverview />;
-      case "officers":
-        return <OfficerManagement />;
-      case "stations":
-        return <StationManagement />;
-      case "emergency":
-        return <EmergencyResponseDashboard />;
-      case "config":
-        return <SystemConfiguration />;
-      default:
-        return <DepartmentOverview />;
-    }
+    return <Outlet />;
   };
 
   return (

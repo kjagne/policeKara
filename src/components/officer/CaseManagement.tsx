@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getCases, createCase } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
@@ -68,6 +69,7 @@ interface Suspect {
 }
 
 const CaseManagement = () => {
+  const navigate = useNavigate();
   const [isNewCaseDialogOpen, setIsNewCaseDialogOpen] = useState(false);
   const [isNewEvidenceDialogOpen, setIsNewEvidenceDialogOpen] = useState(false);
   const [isNewSuspectDialogOpen, setIsNewSuspectDialogOpen] = useState(false);
@@ -587,10 +589,20 @@ const CaseManagement = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  navigate(`/officer/cases/evidence/${item.id}`)
+                                }
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {}}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </div>

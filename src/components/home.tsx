@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import LoginForm from "./auth/LoginForm";
 import AdminDashboard from "./dashboard/AdminDashboard";
@@ -10,6 +10,7 @@ import { signIn, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 const Home = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [userRole, setUserRole] = React.useState<
     "admin" | "officer" | "analyst" | null
@@ -32,21 +33,21 @@ const Home = () => {
         values.password === "password123"
       ) {
         setUserRole("admin");
-        window.location.href = "/admin";
+        navigate("/admin");
         return;
       } else if (
         values.email === "officer@example.com" &&
         values.password === "password123"
       ) {
         setUserRole("officer");
-        window.location.href = "/officer";
+        navigate("/officer");
         return;
       } else if (
         values.email === "analyst@example.com" &&
         values.password === "password123"
       ) {
         setUserRole("analyst");
-        window.location.href = "/analyst";
+        navigate("/analyst");
         return;
       }
 
@@ -114,19 +115,19 @@ const Home = () => {
           <nav>
             <ul className="flex space-x-4">
               <li>
-                <a href="#" className="hover:underline">
+                <Link to="/about" className="hover:underline">
                   About
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:underline">
+                <Link to="/contact" className="hover:underline">
                   Contact
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:underline">
+                <Link to="/help" className="hover:underline">
                   Help
-                </a>
+                </Link>
               </li>
             </ul>
           </nav>

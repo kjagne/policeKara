@@ -24,28 +24,9 @@ const AnalystDashboard = ({
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Check if we're using nested routes with Outlet
-  const isUsingNestedRoutes = window.location.pathname !== "/analyst";
-
+  // Always use Outlet for proper React Router navigation
   const renderContent = () => {
-    // If using nested routes, render the Outlet
-    if (isUsingNestedRoutes) {
-      return <Outlet />;
-    }
-
-    // Otherwise, render the appropriate component based on activeView
-    switch (activeView) {
-      case "statistics":
-        return <CrimeStatistics />;
-      case "prediction":
-        return <AICrimePrediction />;
-      case "reports":
-        return <ReportGeneration />;
-      case "analysis":
-        return <DataAnalysis />;
-      default:
-        return <CrimeStatistics />;
-    }
+    return <Outlet />;
   };
 
   return (
