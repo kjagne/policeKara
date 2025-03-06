@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCases, createCase } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-} from "../ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Table,
   TableHeader,
@@ -23,7 +22,16 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "../ui/table";
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Plus,
   Search,
@@ -34,576 +42,749 @@ import {
   Trash2,
   Upload,
   Eye,
+  Mic,
+  UserPlus,
+  FileUp,
+  Briefcase,
+  Clock,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Download,
+  Filter,
 } from "lucide-react";
+import StatementRecorder from "./StatementRecorder";
+import EvidenceForm from "./EvidenceForm";
 
 interface Case {
   id: string;
   title: string;
-  status: "open" | "closed" | "pending";
-  dateCreated: string;
-  lastUpdated: string;
   description: string;
-  assignedOfficers: string[];
+  status: string;
+  priority: string;
+  date_created: string;
+  last_updated: string;
+  assigned_officers: string[];
+  location: string;
+  case_number: string;
+  created_by: string;
+}
+
+interface Statement {
+  id: string;
+  case_id: string;
+  person_type: "suspect" | "victim" | "witness";
+  person_id: string;
+  statement_text: string;
+  recording_url: string;
+  recording_filename: string;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  person?: Person;
+}
+
+interface Person {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  id_type?: string;
+  id_number?: string;
+  notes?: string;
+}
+
+interface CaseFile {
+  id: string;
+  case_id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_url: string;
+  description: string;
+  uploaded_by: string;
+  uploaded_at: string;
 }
 
 interface Evidence {
   id: string;
-  caseId: string;
-  name: string;
-  type: string;
-  dateCollected: string;
-  location: string;
-  status: string;
+  case_id: string;
+  evidence_type: string;
   description: string;
+  location_found: string;
+  found_date: string;
+  chain_of_custody: any[];
+  status: string;
+  notes: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
-interface Suspect {
-  id: string;
-  caseId: string;
-  name: string;
-  age: number;
-  gender: string;
-  status: string;
-  description: string;
-  lastKnownLocation: string;
-}
-
-const CaseManagement = () => {
+const CaseManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [isNewCaseDialogOpen, setIsNewCaseDialogOpen] = useState(false);
-  const [isNewEvidenceDialogOpen, setIsNewEvidenceDialogOpen] = useState(false);
-  const [isNewSuspectDialogOpen, setIsNewSuspectDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
   const [cases, setCases] = useState<Case[]>([]);
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [statements, setStatements] = useState<Statement[]>([]);
+  const [caseFiles, setCaseFiles] = useState<CaseFile[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [suspects, setSuspects] = useState<Suspect[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isAddCaseOpen, setIsAddCaseOpen] = useState(false);
+  const [isAddStatementOpen, setIsAddStatementOpen] = useState(false);
+  const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [isAddEvidenceOpen, setIsAddEvidenceOpen] = useState(false);
+  const [isUploadFileOpen, setIsUploadFileOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioRecorder, setAudioRecorder] = useState<MediaRecorder | null>(
+    null,
+  );
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
+  const [selectedPersonType, setSelectedPersonType] = useState<
+    "suspect" | "victim" | "witness"
+  >("witness");
+  const [selectedPerson, setSelectedPerson] = useState<string>("");
+  const [persons, setPersons] = useState<Person[]>([]);
+  const [activeTab, setActiveTab] = useState("cases");
+  const [caseDetailsTab, setCaseDetailsTab] = useState("details");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Fetch cases on component mount
   useEffect(() => {
-    const fetchCases = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch cases directly from Supabase
-        const { data, error } = await supabase.from("cases").select("*");
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          // Transform the data to match our Case interface
-          const formattedCases = data.map((item) => ({
-            id: item.id,
-            title: item.title,
-            status: item.status as "open" | "closed" | "pending",
-            dateCreated: item.date_created,
-            lastUpdated: item.last_updated,
-            description: item.description,
-            assignedOfficers:
-              typeof item.assigned_officers === "string"
-                ? JSON.parse(item.assigned_officers)
-                : item.assigned_officers,
-          }));
-          setCases(formattedCases);
-        }
-      } catch (error) {
-        console.error("Error fetching cases:", error);
-        alert("Error fetching cases: " + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const fetchEvidence = async () => {
-      try {
-        const { data, error } = await supabase.from("evidence").select("*");
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          const formattedEvidence = data.map((item) => ({
-            id: item.id,
-            caseId: item.case_id,
-            name: item.name,
-            type: item.type,
-            dateCollected: item.date_collected,
-            location: item.location,
-            status: item.status,
-            description: item.description,
-          }));
-          setEvidence(formattedEvidence);
-        }
-      } catch (error) {
-        console.error("Error fetching evidence:", error);
-      }
-    };
-
-    const fetchSuspects = async () => {
-      try {
-        const { data, error } = await supabase.from("suspects").select("*");
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          const formattedSuspects = data.map((item) => ({
-            id: item.id,
-            caseId: item.case_id,
-            name: item.name,
-            age: item.age,
-            gender: item.gender,
-            status: item.status,
-            description: item.description,
-            lastKnownLocation: item.last_known_location,
-          }));
-          setSuspects(formattedSuspects);
-        }
-      } catch (error) {
-        console.error("Error fetching suspects:", error);
-      }
-    };
-
     fetchCases();
-    fetchEvidence();
-    fetchSuspects();
+    fetchPersons();
   }, []);
 
-  const handleCreateCase = async (caseData) => {
+  // Fetch case details when a case is selected
+  useEffect(() => {
+    if (selectedCase) {
+      fetchStatements(selectedCase.id);
+      fetchCaseFiles(selectedCase.id);
+      fetchEvidence(selectedCase.id);
+    }
+  }, [selectedCase]);
+
+  // Clean up audio recording resources when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [audioStream]);
+
+  const fetchCases = async () => {
     setIsLoading(true);
     try {
-      // Create a new case directly with Supabase
+      const { data, error } = await supabase.from("cases").select("*");
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedCases = data.map((item) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          status: item.status,
+          priority: item.priority || "medium",
+          date_created: new Date(item.date_created).toLocaleDateString(),
+          last_updated: new Date(item.last_updated).toLocaleDateString(),
+          assigned_officers: Array.isArray(item.assigned_officers)
+            ? item.assigned_officers
+            : typeof item.assigned_officers === "string"
+              ? JSON.parse(item.assigned_officers)
+              : [],
+          location: item.location || "",
+          case_number:
+            item.case_number || `CASE-${Math.floor(Math.random() * 10000)}`,
+          created_by: item.created_by || "officer-1",
+        }));
+        setCases(formattedCases);
+      }
+    } catch (error) {
+      console.error("Error fetching cases:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchStatements = async (caseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("statements")
+        .select(`*, person:person_id(*)`) // Join with persons table
+        .eq("case_id", caseId);
+
+      if (error) throw error;
+
+      if (data) {
+        setStatements(data);
+      }
+    } catch (error) {
+      console.error("Error fetching statements:", error);
+    }
+  };
+
+  const fetchCaseFiles = async (caseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("case_files")
+        .select("*")
+        .eq("case_id", caseId);
+
+      if (error) throw error;
+
+      if (data) {
+        setCaseFiles(data);
+      }
+    } catch (error) {
+      console.error("Error fetching case files:", error);
+    }
+  };
+
+  const fetchEvidence = async (caseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("case_evidence")
+        .select("*")
+        .eq("case_id", caseId);
+
+      if (error) throw error;
+
+      if (data) {
+        setEvidence(data);
+      }
+    } catch (error) {
+      console.error("Error fetching evidence:", error);
+    }
+  };
+
+  const fetchPersons = async () => {
+    try {
+      const { data, error } = await supabase.from("persons").select("*");
+
+      if (error) throw error;
+
+      if (data) {
+        setPersons(data);
+      }
+    } catch (error) {
+      console.error("Error fetching persons:", error);
+    }
+  };
+
+  const handleCreateCase = async (formData: any) => {
+    setIsLoading(true);
+    try {
       const { data, error } = await supabase
         .from("cases")
         .insert([
           {
-            title: caseData.title,
-            description: caseData.description,
-            assigned_officers: JSON.stringify(
-              caseData.assignedOfficers.split(",").map((o) => o.trim()),
-            ),
-            status: "open",
-            date_created: new Date().toISOString().split("T")[0],
-            last_updated: new Date().toISOString().split("T")[0],
+            title: formData.title,
+            description: formData.description,
+            status: formData.status,
+            priority: formData.priority,
+            location: formData.location,
+            case_number: formData.caseNumber,
+            date_created: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            assigned_officers: formData.assignedOfficers || [],
+            created_by: "current-officer-id", // Replace with actual officer ID
           },
         ])
         .select();
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        // Format the new case to match our Case interface
-        const newCase = {
-          id: data[0].id,
-          title: data[0].title,
-          status: data[0].status as "open" | "closed" | "pending",
-          dateCreated: data[0].date_created,
-          lastUpdated: data[0].last_updated,
-          description: data[0].description,
-          assignedOfficers:
-            typeof data[0].assigned_officers === "string"
-              ? JSON.parse(data[0].assigned_officers)
-              : data[0].assigned_officers,
-        };
-
-        setCases([...cases, newCase]);
-        setIsNewCaseDialogOpen(false);
+      if (data) {
+        await fetchCases();
+        setIsAddCaseOpen(false);
         alert("Case created successfully!");
       }
     } catch (error) {
       console.error("Error creating case:", error);
-      alert("Failed to create case. Please check the console for details.");
+      alert("Failed to create case. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
 
-  const handleCaseSelect = (caseItem: Case) => {
-    setSelectedCase(caseItem);
+  const handleCreatePerson = async (formData: any) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("persons")
+        .insert([
+          {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            date_of_birth: formData.dateOfBirth,
+            gender: formData.gender,
+            address: formData.address,
+            phone: formData.phone,
+            email: formData.email,
+            id_type: formData.idType,
+            id_number: formData.idNumber,
+            notes: formData.notes,
+          },
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        await fetchPersons();
+        setIsAddPersonOpen(false);
+        setSelectedPerson(data[0].id);
+        alert("Person added successfully!");
+      }
+    } catch (error) {
+      console.error("Error creating person:", error);
+      alert("Failed to add person. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const filteredCases = cases.filter(
-    (caseItem) =>
+  const handleCreateStatement = async (formData: any) => {
+    if (!selectedCase) return;
+
+    setIsLoading(true);
+    try {
+      // If we have recorded audio, upload it first
+      let recordingUrl = "";
+      let recordingFilename = "";
+
+      if (recordedAudio) {
+        // Convert data URL to blob
+        const audioBlob = await fetch(recordedAudio).then((r) => r.blob());
+        const personName = persons.find((p) => p.id === formData.personId);
+        const personFullName = personName
+          ? `${personName.first_name}_${personName.last_name}`
+          : "unknown";
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const filename = `case_${selectedCase.case_number}_${formData.personType}_${personFullName}_${timestamp}.webm`;
+
+        // Upload to Supabase Storage
+        const { data: fileData, error: fileError } = await supabase.storage
+          .from("case-recordings")
+          .upload(filename, audioBlob, {
+            contentType: "audio/webm",
+          });
+
+        if (fileError) throw fileError;
+
+        if (fileData) {
+          const { data: urlData } = supabase.storage
+            .from("case-recordings")
+            .getPublicUrl(fileData.path);
+
+          recordingUrl = urlData.publicUrl;
+          recordingFilename = filename;
+        }
+      }
+
+      // Create the statement record
+      const { data, error } = await supabase
+        .from("statements")
+        .insert([
+          {
+            case_id: selectedCase.id,
+            person_type: formData.personType,
+            person_id: formData.personId,
+            statement_text: formData.statementText,
+            recording_url: recordingUrl,
+            recording_filename: recordingFilename,
+            created_by: "current-officer-id", // Replace with actual officer ID
+          },
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        await fetchStatements(selectedCase.id);
+        setIsAddStatementOpen(false);
+        setRecordedAudio(null);
+        setAudioChunks([]);
+        alert("Statement recorded successfully!");
+      }
+    } catch (error) {
+      console.error("Error creating statement:", error);
+      alert("Failed to record statement. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateEvidence = async (formData: any, files: File[]) => {
+    if (!selectedCase) return;
+
+    setIsLoading(true);
+    try {
+      // First, create the evidence record
+      const { data, error } = await supabase
+        .from("case_evidence")
+        .insert([
+          {
+            case_id: selectedCase.id,
+            evidence_type: formData.evidenceType,
+            description: formData.description,
+            location_found: formData.locationFound,
+            found_date: formData.foundDate,
+            chain_of_custody: [
+              {
+                officer: "current-officer-id", // Replace with actual officer ID
+                action: "collected",
+                timestamp: new Date().toISOString(),
+                notes: "Initial collection",
+              },
+            ],
+            status: "active",
+            notes: formData.notes,
+            created_by: "current-officer-id", // Replace with actual officer ID
+          },
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        // If we have files, upload them and associate with this evidence
+        if (files.length > 0) {
+          for (const file of files) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+            const filename = `evidence_${data[0].id}_${timestamp}_${file.name}`;
+
+            // Upload to Supabase Storage
+            const { data: fileData, error: fileError } = await supabase.storage
+              .from("case-files")
+              .upload(filename, file);
+
+            if (fileError) {
+              console.error("Error uploading file:", fileError);
+              continue;
+            }
+
+            if (fileData) {
+              const { data: urlData } = supabase.storage
+                .from("case-files")
+                .getPublicUrl(fileData.path);
+
+              // Create file record in database
+              await supabase.from("case_files").insert([
+                {
+                  case_id: selectedCase.id,
+                  file_name: file.name,
+                  file_type: file.type,
+                  file_size: file.size,
+                  file_url: urlData.publicUrl,
+                  description: `Evidence file for ${formData.evidenceType}`,
+                  uploaded_by: "current-officer-id", // Replace with actual officer ID
+                },
+              ]);
+            }
+          }
+        }
+
+        await fetchEvidence(selectedCase.id);
+        await fetchCaseFiles(selectedCase.id);
+        setIsAddEvidenceOpen(false);
+        alert("Evidence added successfully!");
+      }
+    } catch (error) {
+      console.error("Error adding evidence:", error);
+      alert("Failed to add evidence. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUploadFile = async (formData: any) => {
+    if (!selectedCase || !selectedFile) return;
+
+    setIsLoading(true);
+    try {
+      // Upload file to Supabase Storage
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `case_${selectedCase.case_number}_${timestamp}_${selectedFile.name}`;
+
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from("case-files")
+        .upload(filename, selectedFile);
+
+      if (fileError) throw fileError;
+
+      if (fileData) {
+        const { data: urlData } = supabase.storage
+          .from("case-files")
+          .getPublicUrl(fileData.path);
+
+        // Create file record in database
+        const { data, error } = await supabase
+          .from("case_files")
+          .insert([
+            {
+              case_id: selectedCase.id,
+              file_name: selectedFile.name,
+              file_type: selectedFile.type,
+              file_size: selectedFile.size,
+              file_url: urlData.publicUrl,
+              description: formData.description,
+              uploaded_by: "current-officer-id", // Replace with actual officer ID
+            },
+          ])
+          .select();
+
+        if (error) throw error;
+
+        if (data) {
+          await fetchCaseFiles(selectedCase.id);
+          setIsUploadFileOpen(false);
+          setSelectedFile(null);
+          alert("File uploaded successfully!");
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload file. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Audio recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setAudioStream(stream);
+
+      const recorder = new MediaRecorder(stream);
+      setAudioRecorder(recorder);
+
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        chunks.push(e.data);
+        setAudioChunks([...chunks]);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const audioURL = URL.createObjectURL(blob);
+        setRecordedAudio(audioURL);
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      alert(
+        "Failed to start recording. Please check your microphone permissions.",
+      );
+    }
+  };
+
+  const stopRecording = () => {
+    if (audioRecorder) {
+      audioRecorder.stop();
+      setIsRecording(false);
+
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+      }
+    }
+  };
+
+  // Handle audio recording from StatementRecorder component
+  const handleSaveRecording = (audioBlob: Blob, audioUrl: string) => {
+    setRecordedAudio(audioUrl);
+  };
+
+  // Filter cases based on search query and status filter
+  const filteredCases = cases.filter((caseItem) => {
+    const matchesSearch =
       caseItem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      caseItem.id.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+      (caseItem.case_number &&
+        caseItem.case_number.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesStatus =
+      statusFilter === "all" || caseItem.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  const caseEvidence = evidence.filter(
-    (item) => selectedCase && item.caseId === selectedCase.id,
-  );
-  const caseSuspects = suspects.filter(
-    (item) => selectedCase && item.caseId === selectedCase.id,
-  );
-
+  // Helper function to get status badge color
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
       case "open":
-        return "default";
+        return "bg-green-100 text-green-800";
       case "closed":
-        return "secondary";
+        return "bg-gray-100 text-gray-800";
       case "pending":
-        return "outline";
-      case "wanted":
-        return "destructive";
-      case "under investigation":
-        return "default";
-      case "processing":
-        return "outline";
-      case "analyzed":
-        return "secondary";
-      case "collected":
-        return "default";
+        return "bg-yellow-100 text-yellow-800";
+      case "urgent":
+        return "bg-red-100 text-red-800";
       default:
-        return "default";
+        return "bg-blue-100 text-blue-800";
+    }
+  };
+
+  // Helper function to get priority badge color
+  const getPriorityBadgeVariant = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case "high":
+        return "bg-red-100 text-red-800";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800";
+      case "low":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-blue-100 text-blue-800";
     }
   };
 
   return (
     <div className="w-full h-full p-6 bg-background">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Case Management</h1>
-        <div className="flex space-x-4">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search cases..."
-              className="pl-8 w-[250px]"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Dialog
-            open={isNewCaseDialogOpen}
-            onOpenChange={setIsNewCaseDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Case
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Case</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label htmlFor="case-id" className="text-right">
-                    Case ID
-                  </label>
-                  <Input
-                    id="case-id"
-                    className="col-span-3"
-                    placeholder="Auto-generated"
-                    disabled
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label htmlFor="title" className="text-right">
-                    Title
-                  </label>
-                  <Input
-                    id="title"
-                    className="col-span-3"
-                    placeholder="Case title"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label htmlFor="description" className="text-right">
-                    Description
-                  </label>
-                  <Textarea
-                    id="description"
-                    className="col-span-3"
-                    placeholder="Case description"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label htmlFor="officers" className="text-right">
-                    Assigned Officers
-                  </label>
-                  <Input
-                    id="officers"
-                    className="col-span-3"
-                    placeholder="Officer names (comma separated)"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsNewCaseDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    const titleInput = document.getElementById(
-                      "title",
-                    ) as HTMLInputElement;
-                    const descriptionInput = document.getElementById(
-                      "description",
-                    ) as HTMLTextAreaElement;
-                    const officersInput = document.getElementById(
-                      "officers",
-                    ) as HTMLInputElement;
-
-                    const caseData = {
-                      title: titleInput.value,
-                      description: descriptionInput.value,
-                      assignedOfficers: officersInput.value,
-                    };
-
-                    handleCreateCase(caseData);
-                  }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Processing..." : "Create Case"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div>
+          <h1 className="text-2xl font-bold">Case Management</h1>
+          <p className="text-muted-foreground">
+            Manage cases, statements, evidence, and reports
+          </p>
         </div>
+        <Button
+          onClick={() => {
+            setIsAddCaseOpen(true);
+            setActiveTab("cases");
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" /> New Case
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1 space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="cases" className="flex items-center">
+            <Briefcase className="mr-2 h-4 w-4" />
+            Cases
+          </TabsTrigger>
+          {selectedCase && (
+            <TabsTrigger value="case-details" className="flex items-center">
+              <FileText className="mr-2 h-4 w-4" />
+              Case Details
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="cases" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Cases</CardTitle>
+              <CardTitle>Case Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {filteredCases.length > 0 ? (
-                  filteredCases.map((caseItem) => (
-                    <div
-                      key={caseItem.id}
-                      className={`p-3 border rounded-md cursor-pointer hover:bg-accent/50 ${selectedCase?.id === caseItem.id ? "bg-accent" : ""}`}
-                      onClick={() => handleCaseSelect(caseItem)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{caseItem.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {caseItem.id}
-                          </p>
-                        </div>
-                        <Badge variant={getStatusBadgeVariant(caseItem.status)}>
-                          {caseItem.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm mt-2 truncate">
-                        {caseItem.description}
-                      </p>
-                      <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-                        <span>Created: {caseItem.dateCreated}</span>
-                        <span>Updated: {caseItem.lastUpdated}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center py-4 text-muted-foreground">
-                    No cases found
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="md:col-span-2">
-          {selectedCase ? (
-            <Tabs defaultValue="details">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="details">Case Details</TabsTrigger>
-                <TabsTrigger value="evidence">Evidence</TabsTrigger>
-                <TabsTrigger value="suspects">Suspects</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="details" className="space-y-4 mt-4">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>{selectedCase.title}</CardTitle>
-                      <Badge
-                        variant={getStatusBadgeVariant(selectedCase.status)}
-                      >
-                        {selectedCase.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-medium">Case ID</h3>
-                      <p>{selectedCase.id}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium">Description</h3>
-                      <p>{selectedCase.description}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium">Assigned Officers</h3>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedCase.assignedOfficers.map((officer, index) => (
-                          <Badge key={index} variant="outline">
-                            {officer}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-sm font-medium">Date Created</h3>
-                        <p>{selectedCase.dateCreated}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium">Last Updated</h3>
-                        <p>{selectedCase.lastUpdated}</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2 pt-4">
-                      <Button variant="outline" size="sm">
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit Case
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <FileText className="mr-2 h-4 w-4" />
-                        Generate Report
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="evidence" className="space-y-4 mt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">
-                    Evidence for {selectedCase.title}
-                  </h2>
-                  <Dialog
-                    open={isNewEvidenceDialogOpen}
-                    onOpenChange={setIsNewEvidenceDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Evidence
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Evidence</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label htmlFor="evidence-name" className="text-right">
-                            Name
-                          </label>
-                          <Input
-                            id="evidence-name"
-                            className="col-span-3"
-                            placeholder="Evidence name"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label htmlFor="evidence-type" className="text-right">
-                            Type
-                          </label>
-                          <Input
-                            id="evidence-type"
-                            className="col-span-3"
-                            placeholder="Evidence type"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="evidence-location"
-                            className="text-right"
-                          >
-                            Location
-                          </label>
-                          <Input
-                            id="evidence-location"
-                            className="col-span-3"
-                            placeholder="Where it was found"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="evidence-description"
-                            className="text-right"
-                          >
-                            Description
-                          </label>
-                          <Textarea
-                            id="evidence-description"
-                            className="col-span-3"
-                            placeholder="Evidence description"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label className="text-right">Upload Files</label>
-                          <div className="col-span-3">
-                            <Button variant="outline" className="w-full">
-                              <Upload className="mr-2 h-4 w-4" />
-                              Upload Evidence Files
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsNewEvidenceDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={() => setIsNewEvidenceDialogOpen(false)}
-                        >
-                          Add Evidence
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search cases by title or case number..."
+                    className="pl-9"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
+                <div className="w-full md:w-[200px]">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4" />
+                        <SelectValue placeholder="Filter by status" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Date Collected</TableHead>
+                      <TableHead>Case Number</TableHead>
+                      <TableHead>Title</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Date Created</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {caseEvidence.length > 0 ? (
-                      caseEvidence.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.id}</TableCell>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell>{item.type}</TableCell>
-                          <TableCell>{item.dateCollected}</TableCell>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-4">
+                          Loading cases...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredCases.length > 0 ? (
+                      filteredCases.map((caseItem) => (
+                        <TableRow key={caseItem.id}>
+                          <TableCell className="font-medium">
+                            {caseItem.case_number}
+                          </TableCell>
+                          <TableCell>{caseItem.title}</TableCell>
                           <TableCell>
-                            <Badge variant={getStatusBadgeVariant(item.status)}>
-                              {item.status}
+                            <Badge
+                              className={getStatusBadgeVariant(caseItem.status)}
+                            >
+                              {caseItem.status.charAt(0).toUpperCase() +
+                                caseItem.status.slice(1)}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex space-x-2">
+                            <Badge
+                              className={getPriorityBadgeVariant(
+                                caseItem.priority,
+                              )}
+                            >
+                              {caseItem.priority.charAt(0).toUpperCase() +
+                                caseItem.priority.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{caseItem.date_created}</TableCell>
+                          <TableCell>{caseItem.last_updated}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() =>
-                                  navigate(`/officer/cases/evidence/${item.id}`)
-                                }
+                                onClick={() => {
+                                  setSelectedCase(caseItem);
+                                  setActiveTab("case-details");
+                                  setCaseDetailsTab("details");
+                                }}
                               >
                                 <Eye className="h-4 w-4" />
+                                <span className="sr-only">View</span>
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {}}
-                              >
+                              <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
+                                <span className="sr-only">Edit</span>
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <FileText className="h-4 w-4" />
+                                <span className="sr-only">Report</span>
                               </Button>
                             </div>
                           </TableCell>
@@ -611,198 +792,909 @@ const CaseManagement = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center">
-                          No evidence found for this case
+                        <TableCell
+                          colSpan={7}
+                          className="text-center py-4 text-muted-foreground"
+                        >
+                          No cases found matching your criteria
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </TabsContent>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <TabsContent value="suspects" className="space-y-4 mt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">
-                    Suspects for {selectedCase.title}
-                  </h2>
-                  <Dialog
-                    open={isNewSuspectDialogOpen}
-                    onOpenChange={setIsNewSuspectDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Suspect
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Suspect</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label htmlFor="suspect-name" className="text-right">
-                            Name
-                          </label>
-                          <Input
-                            id="suspect-name"
-                            className="col-span-3"
-                            placeholder="Suspect name"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label htmlFor="suspect-age" className="text-right">
-                            Age
-                          </label>
-                          <Input
-                            id="suspect-age"
-                            type="number"
-                            className="col-span-3"
-                            placeholder="Suspect age"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="suspect-gender"
-                            className="text-right"
-                          >
-                            Gender
-                          </label>
-                          <Input
-                            id="suspect-gender"
-                            className="col-span-3"
-                            placeholder="Suspect gender"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="suspect-location"
-                            className="text-right"
-                          >
-                            Last Known Location
-                          </label>
-                          <Input
-                            id="suspect-location"
-                            className="col-span-3"
-                            placeholder="Last known location"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="suspect-description"
-                            className="text-right"
-                          >
-                            Description
-                          </label>
-                          <Textarea
-                            id="suspect-description"
-                            className="col-span-3"
-                            placeholder="Physical description"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <label
-                            htmlFor="suspect-status"
-                            className="text-right"
-                          >
+        {selectedCase && (
+          <TabsContent value="case-details" className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-bold">{selectedCase.title}</h2>
+                <p className="text-muted-foreground">
+                  Case #{selectedCase.case_number} •{" "}
+                  {selectedCase.status.charAt(0).toUpperCase() +
+                    selectedCase.status.slice(1)}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Case
+                </Button>
+                <Button>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Report
+                </Button>
+              </div>
+            </div>
+
+            <Tabs value={caseDetailsTab} onValueChange={setCaseDetailsTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="statements">Statements</TabsTrigger>
+                <TabsTrigger value="evidence">Evidence</TabsTrigger>
+                <TabsTrigger value="files">Files</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Case Information</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                          Description
+                        </h3>
+                        <p className="text-sm">{selectedCase.description}</p>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-2">
                             Status
-                          </label>
-                          <Input
-                            id="suspect-status"
-                            className="col-span-3"
-                            placeholder="Suspect status"
-                          />
+                          </h3>
+                          <Badge
+                            className={getStatusBadgeVariant(
+                              selectedCase.status,
+                            )}
+                          >
+                            {selectedCase.status.charAt(0).toUpperCase() +
+                              selectedCase.status.slice(1)}
+                          </Badge>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                            Priority
+                          </h3>
+                          <Badge
+                            className={getPriorityBadgeVariant(
+                              selectedCase.priority,
+                            )}
+                          >
+                            {selectedCase.priority.charAt(0).toUpperCase() +
+                              selectedCase.priority.slice(1)}
+                          </Badge>
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsNewSuspectDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={() => setIsNewSuspectDialogOpen(false)}
-                        >
-                          Add Suspect
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                          Location
+                        </h3>
+                        <p className="text-sm">
+                          {selectedCase.location || "Not specified"}
+                        </p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                          Date Created
+                        </h3>
+                        <p className="text-sm">{selectedCase.date_created}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                          Last Updated
+                        </h3>
+                        <p className="text-sm">{selectedCase.last_updated}</p>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                        Assigned Officers
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCase.assigned_officers &&
+                        selectedCase.assigned_officers.length > 0 ? (
+                          selectedCase.assigned_officers.map(
+                            (officer, index) => (
+                              <Badge key={index} variant="outline">
+                                {officer}
+                              </Badge>
+                            ),
+                          )
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No officers assigned
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Case Timeline</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex">
+                        <div className="mr-4 flex flex-col items-center">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600">
+                            <Clock className="h-4 w-4" />
+                          </div>
+                          <div className="h-full w-px bg-gray-200 mt-2"></div>
+                        </div>
+                        <div className="pb-6">
+                          <p className="text-sm font-medium">Case Created</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedCase.date_created}
+                          </p>
+                          <p className="text-sm mt-1">
+                            Case was created and assigned to officers
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex">
+                        <div className="mr-4 flex flex-col items-center">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </div>
+                          <div className="h-full w-px bg-gray-200 mt-2"></div>
+                        </div>
+                        <div className="pb-6">
+                          <p className="text-sm font-medium">
+                            Investigation Started
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedCase.date_created}
+                          </p>
+                          <p className="text-sm mt-1">
+                            Initial investigation was started
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex">
+                        <div className="mr-4 flex flex-col items-center">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 text-yellow-600">
+                            <AlertCircle className="h-4 w-4" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            Current Status:{" "}
+                            {selectedCase.status.charAt(0).toUpperCase() +
+                              selectedCase.status.slice(1)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Last updated: {selectedCase.last_updated}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="statements" className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Statements</h3>
+                  <Button onClick={() => setIsAddStatementOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Record Statement
+                  </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {caseSuspects.length > 0 ? (
-                    caseSuspects.map((suspect) => (
-                      <Card key={suspect.id}>
-                        <CardHeader>
-                          <div className="flex justify-between items-center">
-                            <CardTitle className="flex items-center">
-                              <User className="mr-2 h-5 w-5" />
-                              {suspect.name}
-                            </CardTitle>
-                            <Badge
-                              variant={getStatusBadgeVariant(suspect.status)}
-                            >
-                              {suspect.status}
+                {statements.length > 0 ? (
+                  <div className="space-y-4">
+                    {statements.map((statement) => (
+                      <Card key={statement.id}>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between">
+                            <div>
+                              <CardTitle className="text-base">
+                                {statement.person_type.charAt(0).toUpperCase() +
+                                  statement.person_type.slice(1)}{" "}
+                                Statement
+                              </CardTitle>
+                              <p className="text-sm text-muted-foreground">
+                                {statement.person?.first_name}{" "}
+                                {statement.person?.last_name} •{" "}
+                                {new Date(
+                                  statement.created_at,
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant="outline">
+                              {statement.person_type}
                             </Badge>
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-sm font-medium">Age</p>
-                              <p>{suspect.age}</p>
+                        <CardContent>
+                          <p className="text-sm whitespace-pre-line">
+                            {statement.statement_text}
+                          </p>
+
+                          {statement.recording_url && (
+                            <div className="mt-4">
+                              <h4 className="text-sm font-medium mb-2">
+                                Audio Recording
+                              </h4>
+                              <audio controls className="w-full">
+                                <source
+                                  src={statement.recording_url}
+                                  type="audio/webm"
+                                />
+                                Your browser does not support the audio element.
+                              </audio>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">Gender</p>
-                              <p>{suspect.gender}</p>
-                            </div>
+                          )}
+                        </CardContent>
+                        <CardContent className="flex justify-between pt-2 border-t">
+                          <div className="text-xs text-muted-foreground">
+                            Recorded on{" "}
+                            {new Date(statement.created_at).toLocaleString()}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">Description</p>
-                            <p className="text-sm">{suspect.description}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">
-                              Last Known Location
-                            </p>
-                            <p className="text-sm">
-                              {suspect.lastKnownLocation}
-                            </p>
-                          </div>
-                          <div className="flex space-x-2 pt-2">
-                            <Button variant="outline" size="sm">
-                              <Edit className="mr-2 h-4 w-4" />
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm">
-                              <Folder className="mr-2 h-4 w-4" />
-                              View Files
+                            {statement.recording_url && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <a
+                                  href={statement.recording_url}
+                                  download={statement.recording_filename}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  Download
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-8">
+                      <div className="rounded-full bg-muted p-3 mb-3">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">
+                        No Statements
+                      </h3>
+                      <p className="text-muted-foreground text-center max-w-md mb-4">
+                        There are no statements recorded for this case yet.
+                        Record a statement from a suspect, victim, or witness.
+                      </p>
+                      <Button onClick={() => setIsAddStatementOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Record Statement
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="evidence" className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Evidence</h3>
+                  <Button onClick={() => setIsAddEvidenceOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Evidence
+                  </Button>
+                </div>
+
+                {evidence.length > 0 ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Location Found</TableHead>
+                          <TableHead>Date Found</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {evidence.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              {item.evidence_type}
+                            </TableCell>
+                            <TableCell>{item.description}</TableCell>
+                            <TableCell>{item.location_found}</TableCell>
+                            <TableCell>
+                              {new Date(item.found_date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{item.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="sm">
+                                  <Eye className="h-4 w-4" />
+                                  <span className="sr-only">View</span>
+                                </Button>
+                                <Button variant="ghost" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                  <span className="sr-only">Edit</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-8">
+                      <div className="rounded-full bg-muted p-3 mb-3">
+                        <Briefcase className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">No Evidence</h3>
+                      <p className="text-muted-foreground text-center max-w-md mb-4">
+                        There is no evidence recorded for this case yet. Add
+                        evidence items to track them in the system.
+                      </p>
+                      <Button onClick={() => setIsAddEvidenceOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Evidence
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="files" className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Case Files</h3>
+                  <Button onClick={() => setIsUploadFileOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload File
+                  </Button>
+                </div>
+
+                {caseFiles.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {caseFiles.map((file) => (
+                      <Card key={file.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-muted rounded-md">
+                              <FileText className="h-8 w-8 text-blue-500" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <h4
+                                className="font-medium text-sm truncate"
+                                title={file.file_name}
+                              >
+                                {file.file_name}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.file_size / 1024).toFixed(2)} KB •{" "}
+                                {file.file_type}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Uploaded{" "}
+                                {new Date(
+                                  file.uploaded_at,
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          {file.description && (
+                            <p className="text-sm mt-3 text-muted-foreground">
+                              {file.description}
+                            </p>
+                          )}
+                          <div className="flex justify-end mt-4 gap-2">
+                            <Button variant="ghost" size="sm" asChild>
+                              <a
+                                href={file.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </a>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <a href={file.file_url} download={file.file_name}>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </a>
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
-                    ))
-                  ) : (
-                    <div className="md:col-span-2 text-center py-8 text-muted-foreground">
-                      <p>No suspects added to this case</p>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-8">
+                      <div className="rounded-full bg-muted p-3 mb-3">
+                        <FileUp className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">No Files</h3>
+                      <p className="text-muted-foreground text-center max-w-md mb-4">
+                        There are no files uploaded for this case yet. Upload
+                        documents, images, or other files related to the case.
+                      </p>
+                      <Button onClick={() => setIsUploadFileOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload File
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
             </Tabs>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[400px] border rounded-lg bg-muted/20">
-              <Folder className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium">No Case Selected</h3>
-              <p className="text-muted-foreground">
-                Select a case from the list to view details
-              </p>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Add Case Dialog */}
+      <Dialog open={isAddCaseOpen} onOpenChange={setIsAddCaseOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create New Case</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = {
+                title: (e.target as any).title.value,
+                description: (e.target as any).description.value,
+                status: (e.target as any).status.value,
+                priority: (e.target as any).priority.value,
+                location: (e.target as any).location.value,
+                caseNumber: (e.target as any).caseNumber.value,
+                assignedOfficers: [],
+              };
+              handleCreateCase(formData);
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="title">Case Title *</Label>
+                  <Input id="title" name="title" required className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="caseNumber">Case Number *</Label>
+                  <Input
+                    id="caseNumber"
+                    name="caseNumber"
+                    required
+                    className="mt-1"
+                    defaultValue={`CASE-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="location">Location *</Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="status">Status *</Label>
+                  <Select name="status" defaultValue="open">
+                    <SelectTrigger id="status" className="mt-1">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="priority">Priority *</Label>
+                  <Select name="priority" defaultValue="medium">
+                    <SelectTrigger id="priority" className="mt-1">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    required
+                    className="mt-1"
+                    rows={4}
+                  />
+                </div>
+              </div>
             </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddCaseOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Creating..." : "Create Case"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Person Dialog */}
+      <Dialog open={isAddPersonOpen} onOpenChange={setIsAddPersonOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Person</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = {
+                firstName: (e.target as any).firstName.value,
+                lastName: (e.target as any).lastName.value,
+                dateOfBirth: (e.target as any).dateOfBirth.value,
+                gender: (e.target as any).gender.value,
+                address: (e.target as any).address.value,
+                phone: (e.target as any).phone.value,
+                email: (e.target as any).email.value,
+                idType: (e.target as any).idType.value,
+                idNumber: (e.target as any).idNumber.value,
+                notes: (e.target as any).notes.value,
+              };
+              handleCreatePerson(formData);
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    type="date"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select name="gender">
+                    <SelectTrigger id="gender" className="mt-1">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea id="address" name="address" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" name="phone" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="idType">ID Type</Label>
+                  <Select name="idType">
+                    <SelectTrigger id="idType" className="mt-1">
+                      <SelectValue placeholder="Select ID type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="national_id">National ID</SelectItem>
+                      <SelectItem value="passport">Passport</SelectItem>
+                      <SelectItem value="drivers_license">
+                        Driver's License
+                      </SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="idNumber">ID Number</Label>
+                  <Input id="idNumber" name="idNumber" className="mt-1" />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea id="notes" name="notes" className="mt-1" />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddPersonOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Person"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Statement Dialog */}
+      <Dialog
+        open={isAddStatementOpen}
+        onOpenChange={(open) => {
+          setIsAddStatementOpen(open);
+          if (!open) {
+            // Clean up recording state when dialog is closed
+            if (isRecording) {
+              stopRecording();
+            }
+            setRecordedAudio(null);
+            setAudioChunks([]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Record Statement</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = {
+                personType: selectedPersonType,
+                personId: selectedPerson,
+                statementText: (e.target as any).statementText.value,
+              };
+              handleCreateStatement(formData);
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="personType">Person Type *</Label>
+                  <Select
+                    value={selectedPersonType}
+                    onValueChange={(value: "suspect" | "victim" | "witness") =>
+                      setSelectedPersonType(value)
+                    }
+                  >
+                    <SelectTrigger id="personType" className="mt-1">
+                      <SelectValue placeholder="Select person type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="suspect">Suspect</SelectItem>
+                      <SelectItem value="victim">Victim</SelectItem>
+                      <SelectItem value="witness">Witness</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="personId">Person *</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setIsAddPersonOpen(true)}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Add New
+                    </Button>
+                  </div>
+                  <Select
+                    value={selectedPerson}
+                    onValueChange={setSelectedPerson}
+                  >
+                    <SelectTrigger id="personId" className="mt-1">
+                      <SelectValue placeholder="Select person" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {persons.map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          {person.first_name} {person.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="statementText">Statement Text *</Label>
+                  <Textarea
+                    id="statementText"
+                    name="statementText"
+                    required
+                    className="mt-1"
+                    rows={6}
+                    placeholder="Enter the statement text here..."
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label>Audio Recording</Label>
+                  {selectedCase && selectedPerson && (
+                    <StatementRecorder
+                      onSave={handleSaveRecording}
+                      onCancel={() => setRecordedAudio(null)}
+                      caseNumber={selectedCase.case_number}
+                      personName={
+                        persons.find((p) => p.id === selectedPerson)
+                          ?.first_name +
+                          " " +
+                          persons.find((p) => p.id === selectedPerson)
+                            ?.last_name || "Unknown"
+                      }
+                      personType={selectedPersonType}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddStatementOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading || !selectedPerson}>
+                {isLoading ? "Saving..." : "Save Statement"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Evidence Dialog */}
+      <Dialog open={isAddEvidenceOpen} onOpenChange={setIsAddEvidenceOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add Evidence</DialogTitle>
+          </DialogHeader>
+          {selectedCase && (
+            <EvidenceForm
+              onSubmit={handleCreateEvidence}
+              onCancel={() => setIsAddEvidenceOpen(false)}
+              isLoading={isLoading}
+            />
           )}
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload File Dialog */}
+      <Dialog open={isUploadFileOpen} onOpenChange={setIsUploadFileOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Upload File</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!selectedFile) {
+                alert("Please select a file to upload");
+                return;
+              }
+              const formData = {
+                description: (e.target as any).description.value,
+              };
+              handleUploadFile(formData);
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="fileUpload">File *</Label>
+                  <Input
+                    id="fileUpload"
+                    name="fileUpload"
+                    type="file"
+                    required
+                    className="mt-1"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setSelectedFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    className="mt-1"
+                    rows={3}
+                    placeholder="Enter a description for this file..."
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsUploadFileOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading || !selectedFile}>
+                {isLoading ? "Uploading..." : "Upload File"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
