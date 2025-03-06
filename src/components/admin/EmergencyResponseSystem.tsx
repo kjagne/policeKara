@@ -4,15 +4,10 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -37,19 +32,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
+  Search,
+  Filter,
+  Plus,
+  Phone,
+  MapPin,
   AlertCircle,
   Clock,
-  MapPin,
-  Phone,
-  Plus,
-  Radio,
   RefreshCw,
-  Search,
   Send,
   Truck,
   User,
 } from "lucide-react";
+import { format } from "date-fns";
+import MapView from "./MapView";
+import WantedCriminalsModule from "./WantedCriminalsModule";
 
 const EmergencyResponseSystem = () => {
   const [emergencyCalls, setEmergencyCalls] = useState([]);
@@ -59,6 +62,7 @@ const EmergencyResponseSystem = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCall, setSelectedCall] = useState(null);
   const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
 
   useEffect(() => {
     fetchEmergencyCalls();
@@ -609,6 +613,8 @@ const EmergencyResponseSystem = () => {
               <TabsTrigger value="active">Active Emergencies</TabsTrigger>
               <TabsTrigger value="resolved">Resolved</TabsTrigger>
               <TabsTrigger value="all">All Calls</TabsTrigger>
+              <TabsTrigger value="map">Map View</TabsTrigger>
+              <TabsTrigger value="wanted">Wanted Criminals</TabsTrigger>
             </TabsList>
 
             <TabsContent value="active" className="space-y-4">
@@ -823,6 +829,14 @@ const EmergencyResponseSystem = () => {
                   )}
                 </TableBody>
               </Table>
+            </TabsContent>
+
+            <TabsContent value="map">
+              <MapView />
+            </TabsContent>
+
+            <TabsContent value="wanted">
+              <WantedCriminalsModule />
             </TabsContent>
           </Tabs>
         </div>

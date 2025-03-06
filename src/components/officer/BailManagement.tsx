@@ -56,12 +56,9 @@ import {
   UserX,
   Eye,
   Edit,
-  Trash2,
-  ArrowRight,
 } from "lucide-react";
 import { format, formatDistanceToNow, addHours, isPast } from "date-fns";
 
-// Types
 interface BailRecord {
   id: string;
   case_id: string;
@@ -136,7 +133,7 @@ interface Station {
   name: string;
 }
 
-const BailManagement: React.FC = () => {
+const BailManagement = () => {
   const [bailRecords, setBailRecords] = useState<BailRecord[]>([]);
   const [detentionRecords, setDetentionRecords] = useState<DetentionRecord[]>(
     [],
@@ -160,7 +157,6 @@ const BailManagement: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState("bail");
 
-  // Fetch data on component mount
   useEffect(() => {
     fetchBailRecords();
     fetchDetentionRecords();
