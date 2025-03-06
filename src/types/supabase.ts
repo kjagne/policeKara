@@ -9,6 +9,107 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bail_records: {
+        Row: {
+          assigned_officer: string | null
+          bail_amount: number
+          bail_type: string
+          bailer_address: string | null
+          bailer_contact: string
+          bailer_id_number: string | null
+          bailer_id_type: string | null
+          bailer_name: string
+          bailer_relationship: string | null
+          case_id: string
+          court_date: string | null
+          created_at: string | null
+          created_by: string | null
+          detention_end: string | null
+          detention_limit_hours: number | null
+          detention_start: string
+          id: string
+          notes: string | null
+          status: string
+          suspect_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_officer?: string | null
+          bail_amount: number
+          bail_type: string
+          bailer_address?: string | null
+          bailer_contact: string
+          bailer_id_number?: string | null
+          bailer_id_type?: string | null
+          bailer_name: string
+          bailer_relationship?: string | null
+          case_id: string
+          court_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          detention_end?: string | null
+          detention_limit_hours?: number | null
+          detention_start: string
+          id?: string
+          notes?: string | null
+          status: string
+          suspect_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_officer?: string | null
+          bail_amount?: number
+          bail_type?: string
+          bailer_address?: string | null
+          bailer_contact?: string
+          bailer_id_number?: string | null
+          bailer_id_type?: string | null
+          bailer_name?: string
+          bailer_relationship?: string | null
+          case_id?: string
+          court_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          detention_end?: string | null
+          detention_limit_hours?: number | null
+          detention_start?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          suspect_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bail_records_assigned_officer_fkey"
+            columns: ["assigned_officer"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bail_records_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bail_records_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bail_records_suspect_id_fkey"
+            columns: ["suspect_id"]
+            isOneToOne: false
+            referencedRelation: "criminals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_evidence: {
         Row: {
           case_id: string
@@ -189,6 +290,168 @@ export type Database = {
         }
         Relationships: []
       }
+      criminal_cases: {
+        Row: {
+          case_id: string
+          created_at: string | null
+          criminal_id: string
+          id: string
+          notes: string | null
+          role: string | null
+        }
+        Insert: {
+          case_id: string
+          created_at?: string | null
+          criminal_id: string
+          id?: string
+          notes?: string | null
+          role?: string | null
+        }
+        Update: {
+          case_id?: string
+          created_at?: string | null
+          criminal_id?: string
+          id?: string
+          notes?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "criminal_cases_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "criminal_cases_criminal_id_fkey"
+            columns: ["criminal_id"]
+            isOneToOne: false
+            referencedRelation: "criminals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      criminal_files: {
+        Row: {
+          criminal_id: string
+          description: string | null
+          file_category: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          criminal_id: string
+          description?: string | null
+          file_category?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          criminal_id?: string
+          description?: string | null
+          file_category?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "criminal_files_criminal_id_fkey"
+            columns: ["criminal_id"]
+            isOneToOne: false
+            referencedRelation: "criminals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "criminal_files_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      criminals: {
+        Row: {
+          address: string | null
+          arrest_history: Json | null
+          bio: string | null
+          created_at: string | null
+          current_status: string | null
+          dob: string | null
+          email: string | null
+          fingerprint_data: string | null
+          first_name: string
+          gang_affiliation: string | null
+          gender: string | null
+          id: string
+          known_associates: Json | null
+          last_name: string
+          mugshot_url: string | null
+          national_id: string | null
+          passport_number: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          arrest_history?: Json | null
+          bio?: string | null
+          created_at?: string | null
+          current_status?: string | null
+          dob?: string | null
+          email?: string | null
+          fingerprint_data?: string | null
+          first_name: string
+          gang_affiliation?: string | null
+          gender?: string | null
+          id?: string
+          known_associates?: Json | null
+          last_name: string
+          mugshot_url?: string | null
+          national_id?: string | null
+          passport_number?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          arrest_history?: Json | null
+          bio?: string | null
+          created_at?: string | null
+          current_status?: string | null
+          dob?: string | null
+          email?: string | null
+          fingerprint_data?: string | null
+          first_name?: string
+          gang_affiliation?: string | null
+          gender?: string | null
+          id?: string
+          known_associates?: Json | null
+          last_name?: string
+          mugshot_url?: string | null
+          national_id?: string | null
+          passport_number?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       datasets: {
         Row: {
           created_at: string | null
@@ -227,6 +490,83 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      detention_records: {
+        Row: {
+          arresting_officer: string | null
+          case_id: string | null
+          cell_number: string | null
+          created_at: string | null
+          criminal_id: string
+          detention_end: string | null
+          detention_start: string
+          id: string
+          notes: string | null
+          release_reason: string | null
+          station_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          arresting_officer?: string | null
+          case_id?: string | null
+          cell_number?: string | null
+          created_at?: string | null
+          criminal_id: string
+          detention_end?: string | null
+          detention_start: string
+          id?: string
+          notes?: string | null
+          release_reason?: string | null
+          station_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          arresting_officer?: string | null
+          case_id?: string | null
+          cell_number?: string | null
+          created_at?: string | null
+          criminal_id?: string
+          detention_end?: string | null
+          detention_start?: string
+          id?: string
+          notes?: string | null
+          release_reason?: string | null
+          station_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "detention_records_arresting_officer_fkey"
+            columns: ["arresting_officer"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_records_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_records_criminal_id_fkey"
+            columns: ["criminal_id"]
+            isOneToOne: false
+            referencedRelation: "criminals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_records_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       emergency_calls: {
         Row: {
@@ -642,6 +982,69 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wanted_criminals: {
+        Row: {
+          bounty: number | null
+          created_at: string | null
+          created_by: string | null
+          crimes_committed: string
+          criminal_id: string
+          danger_level: string | null
+          id: string
+          last_seen_date: string | null
+          last_seen_location: string | null
+          notes: string | null
+          priority: number | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          bounty?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          crimes_committed: string
+          criminal_id: string
+          danger_level?: string | null
+          id?: string
+          last_seen_date?: string | null
+          last_seen_location?: string | null
+          notes?: string | null
+          priority?: number | null
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          bounty?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          crimes_committed?: string
+          criminal_id?: string
+          danger_level?: string | null
+          id?: string
+          last_seen_date?: string | null
+          last_seen_location?: string | null
+          notes?: string | null
+          priority?: number | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wanted_criminals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wanted_criminals_criminal_id_fkey"
+            columns: ["criminal_id"]
+            isOneToOne: false
+            referencedRelation: "criminals"
             referencedColumns: ["id"]
           },
         ]
