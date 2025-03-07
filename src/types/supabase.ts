@@ -689,6 +689,7 @@ export type Database = {
       }
       officers: {
         Row: {
+          auth_user_id: string | null
           badge: string
           created_at: string | null
           department: string
@@ -702,6 +703,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          auth_user_id?: string | null
           badge: string
           created_at?: string | null
           department: string
@@ -715,6 +717,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          auth_user_id?: string | null
           badge?: string
           created_at?: string | null
           department?: string
@@ -728,6 +731,63 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      performance_reviews: {
+        Row: {
+          areas_for_improvement: string | null
+          comments: string
+          created_at: string | null
+          goals: string | null
+          id: string
+          officer_id: string
+          rating: number
+          review_date: string
+          reviewer_id: string | null
+          strengths: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          areas_for_improvement?: string | null
+          comments: string
+          created_at?: string | null
+          goals?: string | null
+          id?: string
+          officer_id: string
+          rating: number
+          review_date: string
+          reviewer_id?: string | null
+          strengths?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          areas_for_improvement?: string | null
+          comments?: string
+          created_at?: string | null
+          goals?: string | null
+          id?: string
+          officer_id?: string
+          rating?: number
+          review_date?: string
+          reviewer_id?: string | null
+          strengths?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_reviews_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "officers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       persons: {
         Row: {

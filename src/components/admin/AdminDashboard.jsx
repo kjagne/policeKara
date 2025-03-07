@@ -4,19 +4,25 @@ import DepartmentOverview from "./DepartmentOverview";
 import CasesTab from "./CasesTab";
 import OfficerManagement from "./OfficerManagement";
 import ResourcesTab from "./ResourcesTab";
-import { FileText, Users, Briefcase, TrendingUp, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Briefcase,
+  Settings,
+} from "lucide-react";
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
     <div className="w-full h-full bg-background">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="border-b sticky top-0 bg-background z-10">
+        <div className="border-b">
           <div className="container mx-auto px-4">
-            <TabsList className="h-16">
+            <TabsList className="h-14">
               <TabsTrigger value="overview" className="flex items-center">
-                <TrendingUp className="mr-2 h-4 w-4" />
+                <LayoutDashboard className="mr-2 h-4 w-4" />
                 Department Overview
               </TabsTrigger>
               <TabsTrigger value="cases" className="flex items-center">
@@ -49,7 +55,7 @@ const AdminDashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="personnel" className="mt-0">
-            <OfficerManagement initialOfficers={[]} />
+            <OfficerManagement />
           </TabsContent>
 
           <TabsContent value="resources" className="mt-0">
